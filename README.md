@@ -4,11 +4,11 @@ Within this repository is an assortment of custom implementations of existing, p
 
 Given the balance required between creating new projects with existing implementations and creating these custom implementations, this will repository will grow gradually over time.
 
-# Contents
+## Contents
 
-So far, the models that have been implemented *and tested* are: Kolmogorov-Arnold Networks (KANs) in /kolmogorov_arnold_network.
+So far, the models that have been implemented *and tested* are: Kolmogorov-Arnold Networks (KANs) in /kolmogorov_arnold_network. This architecture was inspired by [this 2024 research paper](https://arxiv.org/abs/2404.19756) and has been proposed as a potential substitute for Multi-layer Perceptrons (MLPs).
 
-# What's To Come
+## What's To Come
 
 DL Models to be implemented include Transformers, Feedforward Neural Networks, Convolutional Neural Networks (CNNs), Recurrent Neural Networks (RNNs), Long-Short Term Memory Networks (LSTMs), and Gated Recurrent Unit (GRUs).
 

@@ -32,15 +32,15 @@ class UnivariateFunction(nn.Module):
         )
 
         if basis_function:
-            self.layer_weight = nn.Parameter(torch.tensor(1)) # As specified in KAN paper
+            self.layer_weight = nn.Parameter(torch.tensor(1.0)) # As specified in KAN paper
             self.bias_weight = nn.Parameter(torch.empty(1))
-            torch.nn.init.xavier_uniform_(self.bias_weight) # As specified in KAN paper
+            torch.nn.init.uniform_(self.bias_weight, -0.1, 0.1)
             self.basis_function = basis_function
         else:
             # If basis_function = None, weights should not be trainable - no basis function bias.
             self.layer_weight = nn.Parameter(torch.tensor(1.0), requires_grad = False)
             self.bias_weight = nn.Parameter(torch.tensor(0.0), requires_grad = False)
-            self.basis_function = lambda x: x
+            self.basis_function = nn.Identity()
 
     def forward(self, x):
         """
@@ -96,9 +96,10 @@ class KANLayer(nn.Module):
         super().__init__()
 
         # OUTPUT rows by INPUT columns matrix of functions
-        self.activation_matrix = nn.ModuleList(
-        [nn.ModuleList([UnivariateFunction(hidden_size, basis_function) for _ in range(input_size)])]
-        for _ in range(output_size))
+        self.activation_matrix = nn.ModuleList([
+            nn.ModuleList([UnivariateFunction(hidden_size, basis_function) for _ in range(input_size)])
+            for _ in range(output_size)
+        ])
 
         self.input_size = input_size
         self.output_size = output_size
@@ -179,6 +180,8 @@ class KAN(nn.Module):
 
         self.layers.append(KANLayer(prev_dim, output_size, hidden_size, basis_function))
 
+        self.layers = nn.Sequential(*self.layers)
+
     def forward(self, x):
         """
         Sequentially applies each layer's forward operation starting from
@@ -190,7 +193,6 @@ class KAN(nn.Module):
         Returns:
             x - Output, returned as 2D tensor: (Batch, Number of Output Nodes)
         """
-        for layer in self.layers:
-            x = layer(x)
+        x = self.layers(x)
 
         return x

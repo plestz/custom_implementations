@@ -1,10 +1,15 @@
 import torch
 import torch.nn as nn
 
+import numpy as np
+
+from encoder import Encoder
+from decoder import Decoder
 from utils import pad_batch_to_longest
 
 class Transformer(nn.Module):
     """
+    My custom implementation of a Transformer, based off of PyTorch's.
     """
     def __init__(self, 
                  d_model = 512, 
@@ -13,25 +18,98 @@ class Transformer(nn.Module):
                  num_decoder_layers = 6,
                  dim_feedforward = 2048,
                  activation = nn.ReLU,
-                 layer_norm_epsilon = 1e-5):
+                 layer_norm_epsilon = 1e-5,
+                 max_context_window = 1024):
         """
+        Transformer intitializer.
+
+        Args:
+            d_model - The embedding & hidden dimension of the transformer
+            num_attention_heads - The number of attention heads
+            num_encoder_layers - The number of sequential encoder blocks in the network
+            num_decoder_layers - The number of sequential decoder blocks in the network
+            dim_feedforward - The feed-forward layer's hidden dimension 
+            activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
+            layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
+            max_context_window - The maximum context window that this transformer will be used to process
         """
-        self.d_model = d_model
-        self.num_attention_heads = num_attention_heads
-        self.num_encoder_layers = num_encoder_layers
-        self.num_decoder_layers = num_decoder_layers
-        self.dim_feedforward = dim_feedforward
-        self.activation = activation
-        self.layer_norm_epsilon = layer_norm_epsilon
+        super().__init__()
+
+        if d_model % 2 != 0:
+            raise ValueError(f'd_model must be even, but was {d_model}.')
+        
+        if max_context_window % 2 != 0:
+            raise ValueError(f'max_context_window must be even, but was {max_context_window}.')
+
+        self.d_model: int = d_model
+        self.num_attention_heads: int = num_attention_heads
+        self.num_encoder_layers: int = num_encoder_layers
+        self.num_decoder_layers: int = num_decoder_layers
+        self.dim_feedforward: int = dim_feedforward
+        self.activation: nn.Module = activation
+        self.layer_norm_epsilon: float = layer_norm_epsilon
+
+        # 1024 = GPT2
+        self.max_context_window = max_context_window
+
+        self.positional_encodings = self.get_all_positional_encodings().float()
 
     def forward(self, source: list[torch.Tensor], target: torch.Tensor):
         """
+        Performs one full forward pass through the transformer. 
+        
+        More detail coming soon.
 
         Args:
-            source -- Encoder input sequence. A 1D list of 2D tensor of shape (d_embedding, n_tokens_i). Each list element is batch example i.
-            target -- Decoder input sequence. A 1D list of 2D tensor of shape (d_embedding, n_tokens_i). Each list element is batch example i.
+            source -- Encoder input batch. A 1D list of 2D tensor of shape (seq, d_model). Each list element is batch example i.
+            target -- Decoder input batch. A 1D list of 2D tensor of shape (seq, d_model). Each list element is batch example i.
         """
-        batch: torch.Tensor = pad_batch_to_longest(source, pad_value = 0)
+        # Validate that d_embedding = d_model
+        assert source[0].size(1) == self.d_model
+
+        input_embedding, max_seq = pad_batch_to_longest(source, pad_value = 0)
+
+        encoder_input = input_embedding + self.positional_encodings[max_seq:]
+
+        encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
+        decoders = nn.ModuleList([Decoder() for _ in range(self.num_encoder_layers)])
+
+        # Encoders (Sequential Processing)
+        encoder_output = encoder_input
+        for i in range(self.num_encoder_layers):
+            encoder_output = encoders[i](encoder_output)
+
+        # Decoders (Sequential Processing)
+
+
+        # out (linear + softmax)
+
+        return source
+
+    def get_all_positional_encodings(self) -> torch.Tensor:
+        """
+        Produces all possible positional encodings according to the maximum
+        context window and d_model, to be stored once at transformer creation.
+
+        Returns:
+            positional_encodings - All possible positional encodings in the shape
+            of (seq, d_model)
+        """
+        positional_encodings = np.empty((self.max_context_window, self.d_model))
+
+        positions = np.arange(self.max_context_window).reshape(-1, 1)
+        dimensions = np.arange(self.d_model // 2)
+        scaling_factor = np.power(10000, 2 * dimensions / self.d_model).reshape(1, -1)
+
+        # Note: np.divide broadcasts two arrays of type [N, 1], [1, M] to [N, M]
+        raw_encodings = np.divide(positions, scaling_factor)
+        sin_encodings = np.sin(raw_encodings)
+        cos_encodings = np.cos(raw_encodings)
+
+        positional_encodings[np.ix_(positions.flatten(), dimensions * 2)] = sin_encodings
+        positional_encodings[np.ix_(positions.flatten(), dimensions * 2 + 1)] = cos_encodings
+
+        return torch.from_numpy(positional_encodings)
     
 if __name__ == '__main__':
-    t = Transformer(d_model = 4, num_attention_heads = 4, num_encoder_layers = 2, num_decoder_layers = 2, dim_feedforward = 64)
+    t = Transformer(d_model = 4, num_attention_heads = 1, num_encoder_layers = 1, num_decoder_layers = 1, dim_feedforward = 4, max_context_window = 4)

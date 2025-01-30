@@ -115,6 +115,6 @@ if __name__ == '__main__':
 
     E = torch.randn(batch_size, seq, d_model) 
 
-    assert E.size() == (batch_size, seq, d_model)
-
     MHA = mha(E)
+
+    assert MHA.size() == E.size()

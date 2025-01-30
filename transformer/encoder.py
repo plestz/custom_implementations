@@ -10,7 +10,7 @@ class Encoder(nn.Module):
     a full-context encoding for each token that will be passed to subsequent
     encoders or the decoder.
     """
-    def __init__(self, d_model: int, num_attention_heads: int, d_ff: int, activation: nn.Module, layer_norm_epsilon: float):
+    def __init__(self, d_model: int, num_attention_heads: int, d_ff: int, activation: nn.Module = nn.ReLU(), layer_norm_epsilon: float = 1e-5):
         """
         Encoder initializer.
 
@@ -47,12 +47,37 @@ class Encoder(nn.Module):
         Returns:
             x - The full-context input embedding (via multi-head self-attention mechanism)
         """
+        original_size = x.size()
+
         MHA = self.mha(x) # Multi-head Attention Mechanism
+        assert MHA.size() == original_size
         x += MHA # Residual Connection
+        # Normalizes over the last dimension, d_model
         x = self.layer_norm_1(x)
+        assert x.size() == original_size
 
         FF = self.ff(x) # Feed-Forward Mechanism
+        assert FF.size() == original_size
         x += FF # Residual Connection
+        # Normalizes over the last dimension, d_model
         x = self.layer_norm_2(x)
+        assert x.size() == original_size
 
         return x
+    
+
+if __name__ == '__main__':
+
+    batch_size = 3
+    seq = 5
+    d_model = 8
+    n_heads = 2
+    d_ff = 4
+
+    encoder = Encoder(d_model, n_heads, d_ff)
+
+    E = torch.randn(batch_size, seq, d_model) 
+
+    out: torch.Tensor = encoder(E)
+
+    assert out.size() == E.size()

@@ -17,7 +17,7 @@ class Transformer(nn.Module):
                  num_encoder_layers = 6,
                  num_decoder_layers = 6,
                  dim_feedforward = 2048,
-                 activation = nn.ReLU,
+                 activation = nn.ReLU(),
                  layer_norm_epsilon = 1e-5,
                  max_context_window = 1024):
         """
@@ -69,7 +69,7 @@ class Transformer(nn.Module):
 
         input_embedding, max_seq = pad_batch_to_longest(source, pad_value = 0)
 
-        encoder_input = input_embedding + self.positional_encodings[max_seq:]
+        encoder_input = input_embedding + self.positional_encodings[:max_seq].unsqueeze(0)
 
         encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
         decoders = nn.ModuleList([Decoder() for _ in range(self.num_encoder_layers)])
@@ -79,12 +79,14 @@ class Transformer(nn.Module):
         for i in range(self.num_encoder_layers):
             encoder_output = encoders[i](encoder_output)
 
+        return encoder_output
+
         # Decoders (Sequential Processing)
 
 
         # out (linear + softmax)
 
-        return source
+        # return ...
 
     def get_all_positional_encodings(self) -> torch.Tensor:
         """
@@ -112,4 +114,18 @@ class Transformer(nn.Module):
         return torch.from_numpy(positional_encodings)
     
 if __name__ == '__main__':
-    t = Transformer(d_model = 4, num_attention_heads = 1, num_encoder_layers = 1, num_decoder_layers = 1, dim_feedforward = 4, max_context_window = 4)
+
+    batch_size = 3
+    seq = 5
+    d_model = 8
+    n_heads = 2
+    d_ff = 4
+
+    E = torch.randn(batch_size, seq, d_model) 
+    T = torch.randn(batch_size, seq, d_model) 
+
+    transformer = Transformer(d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 1, dim_feedforward = d_ff, max_context_window = 20)
+
+    out = transformer(E, T)
+
+    assert out.size() == E.size()

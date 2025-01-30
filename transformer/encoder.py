@@ -31,6 +31,7 @@ class Encoder(nn.Module):
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
         self.ff = FeedForward(self.d_model, self.d_ff, self.activation)
 
+        # Normalizes over the last dimension, d_model
         # Must be distinct to learn independent distribution parameters (gamma, beta)
         self.layer_norm_1 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.layer_norm_2 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
@@ -49,17 +50,15 @@ class Encoder(nn.Module):
         """
         original_size = x.size()
 
-        MHA = self.mha(x) # Multi-head Attention Mechanism
+        MHA = self.mha(x.clone(), x.clone(), x.clone()) # Multi-head Attention Mechanism
         assert MHA.size() == original_size
         x += MHA # Residual Connection
-        # Normalizes over the last dimension, d_model
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         FF = self.ff(x) # Feed-Forward Mechanism
         assert FF.size() == original_size
         x += FF # Residual Connection
-        # Normalizes over the last dimension, d_model
         x = self.layer_norm_2(x)
         assert x.size() == original_size
 

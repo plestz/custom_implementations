@@ -67,26 +67,32 @@ class Transformer(nn.Module):
         # Validate that d_embedding = d_model
         assert source[0].size(1) == self.d_model
 
-        input_embedding, max_seq = pad_batch_to_longest(source, pad_value = 0)
-
-        encoder_input = input_embedding + self.positional_encodings[:max_seq].unsqueeze(0)
-
-        encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
-        decoders = nn.ModuleList([Decoder() for _ in range(self.num_encoder_layers)])
+        input_embedding, max_input_seq = pad_batch_to_longest(source, pad_value = 0)
+        output_embedding, max_output_seq = pad_batch_to_longest(target, pad_value = 0)
 
         # Encoders (Sequential Processing)
+        encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
+
+        encoder_input = input_embedding + self.positional_encodings[:max_input_seq].unsqueeze(0)
+
         encoder_output = encoder_input
         for i in range(self.num_encoder_layers):
             encoder_output = encoders[i](encoder_output)
 
-        return encoder_output
+        encoder_K, encoder_V = encoder_output.clone(), encoder_output.clone()
 
         # Decoders (Sequential Processing)
+        decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, encoder_K, encoder_V, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
 
+        decoder_input = output_embedding + self.positional_encodings[:max_output_seq].unsqueeze(0)
+
+        decoder_output = decoder_input
+        for i in range(self.num_decoder_layers):
+            decoder_output = decoders[i](decoder_output)
 
         # out (linear + softmax)
 
-        # return ...
+        return decoder_output
 
     def get_all_positional_encodings(self) -> torch.Tensor:
         """
@@ -124,7 +130,7 @@ if __name__ == '__main__':
     E = torch.randn(batch_size, seq, d_model) 
     T = torch.randn(batch_size, seq, d_model) 
 
-    transformer = Transformer(d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 1, dim_feedforward = d_ff, max_context_window = 20)
+    transformer = Transformer(d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 6, dim_feedforward = d_ff, max_context_window = 20)
 
     out = transformer(E, T)
 

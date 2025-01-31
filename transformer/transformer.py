@@ -12,6 +12,7 @@ class Transformer(nn.Module):
     My custom implementation of a Transformer, based off of PyTorch's.
     """
     def __init__(self, 
+                 vocab_size: int,
                  d_model = 512, 
                  num_attention_heads = 8, 
                  num_encoder_layers = 6,
@@ -24,6 +25,7 @@ class Transformer(nn.Module):
         Transformer intitializer.
 
         Args:
+            vocab_size - The size of the vocabulary that this transformer will process
             d_model - The embedding & hidden dimension of the transformer
             num_attention_heads - The number of attention heads
             num_encoder_layers - The number of sequential encoder blocks in the network
@@ -41,6 +43,7 @@ class Transformer(nn.Module):
         if max_context_window % 2 != 0:
             raise ValueError(f'max_context_window must be even, but was {max_context_window}.')
 
+        self.vocab_size: int = vocab_size
         self.d_model: int = d_model
         self.num_attention_heads: int = num_attention_heads
         self.num_encoder_layers: int = num_encoder_layers
@@ -54,6 +57,8 @@ class Transformer(nn.Module):
 
         self.positional_encodings = self.get_all_positional_encodings().float()
 
+        self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
+
     def forward(self, source: list[torch.Tensor], target: torch.Tensor):
         """
         Performs one full forward pass through the transformer. 
@@ -63,6 +68,10 @@ class Transformer(nn.Module):
         Args:
             source -- Encoder input batch. A 1D list of 2D tensor of shape (seq, d_model). Each list element is batch example i.
             target -- Decoder input batch. A 1D list of 2D tensor of shape (seq, d_model). Each list element is batch example i.
+
+        Returns:
+            next_word_probs -- For each seq_i in decoder, produces the next_word_probabilities
+            corresponding to the next most likely word.
         """
         # Validate that d_embedding = d_model
         assert source[0].size(1) == self.d_model
@@ -90,9 +99,13 @@ class Transformer(nn.Module):
         for i in range(self.num_decoder_layers):
             decoder_output = decoders[i](decoder_output)
 
-        # out (linear + softmax)
+        # Project to Vocabulary Space
+        logits = self.vocab_linear(decoder_output)
 
-        return decoder_output
+        # Output Next Word Probabilities
+        next_word_probs = torch.softmax(logits, dim = -1)
+
+        return next_word_probs
 
     def get_all_positional_encodings(self) -> torch.Tensor:
         """
@@ -121,6 +134,7 @@ class Transformer(nn.Module):
     
 if __name__ == '__main__':
 
+    vocab_size = 2000
     batch_size = 3
     seq = 5
     d_model = 8
@@ -130,8 +144,8 @@ if __name__ == '__main__':
     E = torch.randn(batch_size, seq, d_model) 
     T = torch.randn(batch_size, seq, d_model) 
 
-    transformer = Transformer(d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 6, dim_feedforward = d_ff, max_context_window = 20)
+    transformer = Transformer(vocab_size = vocab_size, d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 6, dim_feedforward = d_ff, max_context_window = 20)
 
     out = transformer(E, T)
 
-    assert out.size() == E.size()
+    assert out.size() == (batch_size, seq, vocab_size)

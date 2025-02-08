@@ -5,7 +5,7 @@ import numpy as np
 
 from encoder import Encoder
 from decoder import Decoder
-from utils import pad_batch_to_longest
+from utils import pad_batch_to_longest_seq_len
 
 class Transformer(nn.Module):
     """
@@ -59,6 +59,9 @@ class Transformer(nn.Module):
 
         self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
 
+        self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
+        self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
+
     def forward(self, source: list[torch.Tensor], target: torch.Tensor):
         """
         Performs one full forward pass through the transformer. 
@@ -66,8 +69,8 @@ class Transformer(nn.Module):
         More detail coming soon.
 
         Args:
-            source -- Encoder input batch. A 1D list of 2D tensor of shape (seq, d_model). Each list element is batch example i.
-            target -- Decoder input batch. A 1D list of 2D tensor of shape (seq, d_model). Each list element is batch example i.
+            source -- Encoder input batch. A 1D list of 2D tensor of shape (seq_i, d_model). Each list element is batch example i.
+            target -- Decoder input batch. A 1D list of 2D tensor of shape (seq_i, d_model). Each list element is batch example i.
 
         Returns:
             next_word_probs -- For each seq_i in decoder, produces the next_word_probabilities
@@ -76,28 +79,27 @@ class Transformer(nn.Module):
         # Validate that d_embedding = d_model
         assert source[0].size(1) == self.d_model
 
-        input_embedding, max_input_seq = pad_batch_to_longest(source, pad_value = 0)
-        output_embedding, max_output_seq = pad_batch_to_longest(target, pad_value = 0)
+        source_unpadded_seq_lengths = [tensor.size(dim = 0) for tensor in source] # For padding masking in attention calculation
+        target_unpadded_seq_lengths = [tensor.size(dim = 0) for tensor in target] # For padding masking in attention calculation
+
+        input_embedding, max_input_seq = pad_batch_to_longest_seq_len(source, pad_value = None)
+        output_embedding, max_output_seq = pad_batch_to_longest_seq_len(target, pad_value = None)
 
         # Encoders (Sequential Processing)
-        encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
-
         encoder_input = input_embedding + self.positional_encodings[:max_input_seq].unsqueeze(0)
 
         encoder_output = encoder_input
         for i in range(self.num_encoder_layers):
-            encoder_output = encoders[i](encoder_output)
+            encoder_output = self.encoders[i](encoder_output, source_unpadded_seq_lengths)
 
         encoder_K, encoder_V = encoder_output.clone(), encoder_output.clone()
 
         # Decoders (Sequential Processing)
-        decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, encoder_K, encoder_V, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
-
         decoder_input = output_embedding + self.positional_encodings[:max_output_seq].unsqueeze(0)
 
         decoder_output = decoder_input
         for i in range(self.num_decoder_layers):
-            decoder_output = decoders[i](decoder_output)
+            decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_unpadded_seq_lengths)
 
         # Project to Vocabulary Space
         logits = self.vocab_linear(decoder_output)
@@ -149,3 +151,5 @@ if __name__ == '__main__':
     out = transformer(E, T)
 
     assert out.size() == (batch_size, seq, vocab_size)
+
+    print(out)

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 import numpy as np
 
-def pad_batch_to_longest(batch: list[torch.Tensor], pad_value = 0) -> tuple[torch.Tensor, int]:
+def pad_batch_to_longest_seq_len(batch: list[torch.Tensor], pad_value = 0) -> tuple[torch.Tensor, int]:
     """
     Given a batch of sequences (each viewed as a seq amount of d_embedding vectors),
     pads each sequence such that its number of seq vectors is equal to the maximum

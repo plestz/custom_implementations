@@ -22,11 +22,11 @@ class Encoder(nn.Module):
             layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
         """
         super().__init__()
-        self.d_model = d_model
-        self.num_attention_heads = num_attention_heads
-        self.d_ff = d_ff
-        self.activation = activation
-        self.layer_norm_epsilon = layer_norm_epsilon
+        self.d_model: int = d_model
+        self.num_attention_heads: int = num_attention_heads
+        self.d_ff: int = d_ff
+        self.activation: nn.Module = activation
+        self.layer_norm_epsilon: float = layer_norm_epsilon
 
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
         self.ff = FeedForward(self.d_model, self.d_ff, self.activation)
@@ -36,7 +36,7 @@ class Encoder(nn.Module):
         self.layer_norm_1 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.layer_norm_2 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
 
-    def forward(self, x):
+    def forward(self, x, source_unpadded_seq_lengths: list[int]):
         """
         Pushes the input embedding through one full transformer encoder sequence.
 
@@ -44,13 +44,14 @@ class Encoder(nn.Module):
 
         Args:
             x - The input embedding
+            source_unpadded_seq_lengths - A batch_size-length list of the original, unpadded sequence lengths, for attention padding masking
 
         Returns:
             x - The full-context input embedding (via multi-head self-attention mechanism)
         """
         original_size = x.size()
 
-        MHA = self.mha(x.clone(), x.clone(), x.clone()) # Multi-head Attention Mechanism
+        MHA = self.mha(x.clone(), x.clone(), x.clone(), source_unpadded_seq_lengths) # Multi-head Attention Mechanism
         assert MHA.size() == original_size
         x += MHA # Residual Connection
         x = self.layer_norm_1(x)

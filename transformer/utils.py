@@ -42,7 +42,7 @@ if __name__ == '__main__':
     print(sequences)
 
     # Verifies that output is sequences, with pad_value rows appended
-    print(pad_batch_to_longest(sequences, pad_value = 0))
+    print(pad_batch_to_longest_seq_len(sequences, pad_value = 0))
 
     # torch.Size([batch_size = 3, seq = 4, d_model = 3])
-    print(pad_batch_to_longest(sequences, pad_value = 0).shape)
+    print(pad_batch_to_longest_seq_len(sequences, pad_value = 0).shape)

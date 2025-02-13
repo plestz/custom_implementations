@@ -31,7 +31,7 @@ class MultiHeadAttention(nn.Module):
 
         self.W_O = nn.Linear(d_model, d_model)
         
-    def forward(self, in_Q: torch.Tensor, in_K: torch.Tensor, in_V: torch.Tensor, unpadded_seq_lengths: list[int]):
+    def forward(self, in_Q: torch.Tensor, in_K: torch.Tensor, in_V: torch.Tensor, pad_mask: torch.Tensor):
         """
         Pushes the input embedding E through a multi-head attention mechanism,
         returning a tensor of the same dimensions. The embeddings in the output
@@ -45,7 +45,7 @@ class MultiHeadAttention(nn.Module):
             shape (batch_size, seq, d_model). 
             in_V - The V input embedding to be passed through the attention mechanism of
             shape (batch_size, seq, d_model). 
-            unpadded_seq_lengths - A batch_size-length list of the original, unpadded sequence lengths, for attention padding masking
+            pad_mask - Indicator of padding locations to mask (so as to not contribute to attention).
 
         Returns:
             MHA - The result of a Multi-head Attention mechanism on E of shape
@@ -95,23 +95,32 @@ class MultiHeadAttention(nn.Module):
             neg_inf_mask = neg_inf_matrix.triu(diagonal = 1) # if called on 4D tensor, triu applies batch*h times to each (seq, seq) dimension, only operates on 2D matrix
             Q_KT_scaled += neg_inf_mask # if 2D tensor, (seq, seq) will broadcast into (batch_size, h, seq, seq) to mask each (seq, seq)
 
-        # TODO: Parallelize this over the batch dimension too!
-        # SEQ PAD MASK
-        for batch_idx in range(Q_KT_scaled.size(dim = 0)):
-            # Mask out rows outside of this batch element's sequence length
-            Q_KT_scaled[batch_idx][:, unpadded_seq_lengths[batch_idx]:] = float('-inf')
-            # Mask out columns outside of this batch element's sequence length
-            Q_KT_scaled[batch_idx][:, :, unpadded_seq_lengths[batch_idx]:] = float('-inf')
+        # PAD MASK
+        assert pad_mask.ndim == 2
+        batch_seq_lengths = pad_mask.sum(dim = 1) # length of each sequence (excluding PAD_TOKEN_IDX)
 
-        assert Q_KT_scaled.size() == (in_batch_size, self.num_attention_heads, in_seq, in_seq)
+        seq_indices = torch.arange(in_seq)
+
+        non_padding_indices = seq_indices.unsqueeze(0) < batch_seq_lengths.unsqueeze(1) # Result is shape (batch, seq_len) of True/False
+        per_batch_mask_2d = non_padding_indices.unsqueeze(1) & non_padding_indices.unsqueeze(2)
+        per_batch_mask_2d_per_head = per_batch_mask_2d.unsqueeze(1)
+
+        assert per_batch_mask_2d_per_head.size() == (in_batch_size, 1, in_seq, in_seq)
+
+        Q_KT_scaled_masked = Q_KT_scaled.masked_fill(~per_batch_mask_2d_per_head, float('-inf'))
+
+        assert Q_KT_scaled_masked.size() == (in_batch_size, self.num_attention_heads, in_seq, in_seq)
 
         # softmax should be applied row-wise on the (seq, seq) internal matrix. Thus, batch_size * h * seq softmaxes will occur.
         # dim = -1 used to pull out and softmax each row (by collapsing in the column/last dimension).
-        importances = torch.softmax(Q_KT_scaled, dim = -1)
+        importances = torch.softmax(Q_KT_scaled_masked, dim = -1)
 
         assert importances.size() == (in_batch_size, self.num_attention_heads, in_seq, in_seq)
+
+        importances = importances.nan_to_num() # Fill in bottom rows nan output from softmax with 0
+
         # Verify that softmax was correctly applied row_wise to produce batch_size*h seq-length vectors of ones
-        assert torch.allclose(torch.ones(in_batch_size, self.num_attention_heads, in_seq), importances.sum(dim = -1))
+        # assert torch.allclose(torch.ones(in_batch_size, self.num_attention_heads, in_seq), importances.sum(dim = -1))
 
         # Recall that importances is of shape (batch_size, h, seq, seq)
         # Recall that V_h_stack is of shape (batch_size, h, seq, d_v = d_k)
@@ -137,17 +146,3 @@ class MultiHeadAttention(nn.Module):
 
         return MHA
     
-if __name__ == '__main__':
-
-    batch_size = 3
-    seq = 5
-    d_model = 8
-    n_heads = 2
-
-    mha = MultiHeadAttention(d_model, n_heads)
-
-    E = torch.randn(batch_size, seq, d_model) 
-
-    MHA = mha(E.clone(), E.clone(), E.clone())
-
-    assert MHA.size() == E.size()

@@ -1,7 +1,8 @@
 import torch
-import torchtext
-from torchtext.vocab import GloVe, FastText, Vectors
-from torchtext.data.utils import get_tokenizer
+import torch.nn as nn
+# import torchtext
+# from torchtext.vocab import GloVe, FastText, Vectors
+# from torchtext.data.utils import get_tokenizer
 
 class Embedding:
     """
@@ -32,35 +33,53 @@ class Embedding:
         else:
             raise ValueError(f'Unsupported index key type: {key}.')
         
+    def __call__(self, indices: torch.Tensor):
+        return self.embeddings(indices)
+        
 
 
-class PretrainedEmbedding(Embedding):
+# class PretrainedEmbedding(Embedding):
+#     """
+#     An embedding class for pre-trained torchtext embeddings.
+
+#     Subclasses Embedding for instance variable and embedding access utilities.
+#     """
+
+#     def __init__(self, embeddings: Vectors):
+#         """
+#         Initializes PretrainedEmbedding with torchtext.vocab pretrained word embeddings.
+
+#         Args:
+#             embeddings: torchtext.vocab pretrained word embeddings.
+#         """
+#         super().__init__(embeddings)
+
+class CustomEmbedding(Embedding):
     """
-    An embedding class for pre-trained torchtext embeddings.
-
+    An embedding class for new, custom embeddings that will be *trained*.
+    
     Subclasses Embedding for instance variable and embedding access utilities.
     """
-
-    def __init__(self, embeddings: Vectors):
+    def __init__(self, vocab_size: int, d_model: int):
         """
-        Initializes PretrainedEmbedding with torchtext.vocab pretrained word embeddings.
+        Initializes new embeddings according to vocab_size, d_model dimensions.
 
         Args:
-            - embeddings: torchtext.vocab pretrained word embeddings.
+            vocab_size: The total size of the vocabulary of the model
+            d_model: The embedding dimension of the model
         """
-        super().__init__(embeddings)
+        self.embeddings = nn.Embedding(vocab_size, d_model)
+        super().__init__(self.embeddings)
 
-
-
-if __name__ == '__main__':
+# if __name__ == '__main__':
     
-    glove = GloVe(name = '6B', dim = 100, cache = 'embeddings/.vector_cache')
+#     glove = GloVe(name = '6B', dim = 100, cache = 'embeddings/.vector_cache')
 
-    tokenizer = get_tokenizer(tokenizer = 'basic_english')
-    tokens = tokenizer('I love transformers')
+#     tokenizer = get_tokenizer(tokenizer = 'basic_english')
+#     tokens = tokenizer('I love transformers')
 
-    assert tokens == ['i', 'love', 'transformers']
+#     assert tokens == ['i', 'love', 'transformers']
 
-    input_embeddings = PretrainedEmbedding(glove)
+#     input_embeddings = PretrainedEmbedding(glove)
 
-    assert torch.all(input_embeddings[tokens][0] == input_embeddings['i'])
+#     assert torch.all(input_embeddings[tokens][0] == input_embeddings['i'])

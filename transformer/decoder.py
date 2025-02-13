@@ -39,7 +39,7 @@ class Decoder(nn.Module):
         self.layer_norm_2 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.layer_norm_3 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
 
-    def forward(self, x, encoder_K: torch.Tensor, encoder_V: torch.Tensor, target_unpadded_seq_lengths: list[int]):
+    def forward(self, x, encoder_K: torch.Tensor, encoder_V: torch.Tensor, target_pad_mask: torch.Tensor):
         """
         Pushes the output embedding through one full transformer deocder sequence.
 
@@ -49,7 +49,7 @@ class Decoder(nn.Module):
             x - The decoder input of shape (batch_size, seq, d_model)
             encoder_K - The K tensor output by the final encoder block.
             encoder_V - The V tensor output by the final encoder block.
-            target_unpadded_seq_lengths - A batch_size-length list of the original, unpadded sequence lengths, for attention padding masking
+            target_pad_mask - Indicator of padding locations to mask (so as to not contribute to attention)
 
         Returns:
             x - The full-context decoder embedding (via (causal) multi-head self-attention and cross-attention mechanisms) of
@@ -57,13 +57,15 @@ class Decoder(nn.Module):
         """
         original_size = x.size()
 
-        MASKED_MHA = self.masked_mha(x.clone(), x.clone(), x.clone(), target_unpadded_seq_lengths)
+        # CAUSAL SELF-ATTENTION
+        MASKED_MHA = self.masked_mha(x.clone(), x.clone(), x.clone(), target_pad_mask)
         assert MASKED_MHA.size() == original_size
         x += MASKED_MHA
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
-        MHA = self.mha(x.clone(), encoder_K, encoder_V, target_unpadded_seq_lengths)
+        # CROSS-ATTENTION
+        MHA = self.mha(x.clone(), encoder_K, encoder_V, target_pad_mask)
         assert MHA.size() == original_size
         x += MHA
         x = self.layer_norm_2(x)
@@ -76,19 +78,3 @@ class Decoder(nn.Module):
         assert x.size() == original_size
 
         return x
-
-if __name__ == '__main__':
-
-    batch_size = 3
-    seq = 5
-    d_model = 8
-    n_heads = 2
-    d_ff = 4
-
-    E = torch.randn(batch_size, seq, d_model) 
-
-    decoder = Decoder(d_model, n_heads, d_ff)
-
-    out: torch.Tensor = decoder(E, E.clone(), E.clone(), [seq] * batch_size)
-
-    assert out.size() == E.size()

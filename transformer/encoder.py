@@ -36,7 +36,7 @@ class Encoder(nn.Module):
         self.layer_norm_1 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.layer_norm_2 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
 
-    def forward(self, x, source_unpadded_seq_lengths: list[int]):
+    def forward(self, x, source_pad_mask: torch.Tensor):
         """
         Pushes the input embedding through one full transformer encoder sequence.
 
@@ -44,14 +44,14 @@ class Encoder(nn.Module):
 
         Args:
             x - The input embedding
-            source_unpadded_seq_lengths - A batch_size-length list of the original, unpadded sequence lengths, for attention padding masking
+            source_pad_mask - Indicator of padding locations to mask (so as to not contribute to attention)
 
         Returns:
             x - The full-context input embedding (via multi-head self-attention mechanism)
         """
         original_size = x.size()
 
-        MHA = self.mha(x.clone(), x.clone(), x.clone(), source_unpadded_seq_lengths) # Multi-head Attention Mechanism
+        MHA = self.mha(x.clone(), x.clone(), x.clone(), source_pad_mask) # Multi-head Attention Mechanism
         assert MHA.size() == original_size
         x += MHA # Residual Connection
         x = self.layer_norm_1(x)
@@ -64,20 +64,3 @@ class Encoder(nn.Module):
         assert x.size() == original_size
 
         return x
-    
-
-if __name__ == '__main__':
-
-    batch_size = 3
-    seq = 5
-    d_model = 8
-    n_heads = 2
-    d_ff = 4
-
-    encoder = Encoder(d_model, n_heads, d_ff)
-
-    E = torch.randn(batch_size, seq, d_model) 
-
-    out: torch.Tensor = encoder(E)
-
-    assert out.size() == E.size()

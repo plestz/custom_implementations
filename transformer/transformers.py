@@ -85,22 +85,22 @@ class Transformer(nn.Module):
             corresponding to the next most likely word.
         """
         # At this point, source = (# sequences, unaltered sequence padded up to max_seq_len)
-        # At this point, target = (# sequences, [SOS] + desired sequence padding up to max_seq_len)
-        source_pad_mask = (source != self.PAD_TOKEN).long()
+        # At this point, target = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
+        source_pad_mask = memory_pad_mask = (source != self.PAD_TOKEN).long()
         target_pad_mask = (target != self.PAD_TOKEN).long()
 
-        # The goal is turn the "batch" of (1, sequence) into the corresponding batch of (seq_i_len, d_model)
+        # The goal is turn the "batch" of (1, sequence)'s into the corresponding batch of (seq_i_len, d_model)
         source_embedding: torch.Tensor = self.embeddings(source)
         target_embedding: torch.Tensor = self.embeddings(target)
 
-        source_batch_size, source_sequence_len = source.size()
-        target_batch_size, target_sequence_len = target.size()
+        source_batch_size, source_max_sequence_len = source.size()
+        target_batch_size, target_max_sequence_len = target.size()
 
-        assert source_embedding.size() == (source_batch_size, source_sequence_len, self.d_model)
-        assert target_embedding.size() == (target_batch_size, target_sequence_len, self.d_model)
+        assert source_embedding.size() == (source_batch_size, source_max_sequence_len, self.d_model)
+        assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
 
         # Encoders (Sequential Processing)
-        encoder_input = source_embedding + self.positional_encodings[:source_sequence_len].unsqueeze(0)
+        encoder_input = source_embedding + self.positional_encodings[:source_max_sequence_len].unsqueeze(0)
 
         encoder_output = encoder_input
         for i in range(self.num_encoder_layers):
@@ -109,11 +109,11 @@ class Transformer(nn.Module):
         encoder_K, encoder_V = encoder_output.clone(), encoder_output.clone()
 
         # Decoders (Sequential Processing)
-        decoder_input = target_embedding + self.positional_encodings[:target_sequence_len].unsqueeze(0)
+        decoder_input = target_embedding + self.positional_encodings[:target_max_sequence_len].unsqueeze(0)
 
         decoder_output = decoder_input
         for i in range(self.num_decoder_layers):
-            decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask)
+            decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask, memory_pad_mask)
 
         # Project to Vocabulary Space
         logits = self.vocab_linear(decoder_output)

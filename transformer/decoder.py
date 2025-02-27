@@ -39,7 +39,7 @@ class Decoder(nn.Module):
         self.layer_norm_2 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.layer_norm_3 = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
 
-    def forward(self, x, encoder_K: torch.Tensor, encoder_V: torch.Tensor, target_pad_mask: torch.Tensor):
+    def forward(self, x, encoder_K: torch.Tensor, encoder_V: torch.Tensor, target_pad_mask: torch.Tensor, memory_pad_mask: torch.Tensor):
         """
         Pushes the output embedding through one full transformer deocder sequence.
 
@@ -49,7 +49,8 @@ class Decoder(nn.Module):
             x - The decoder input of shape (batch_size, seq, d_model)
             encoder_K - The K tensor output by the final encoder block.
             encoder_V - The V tensor output by the final encoder block.
-            target_pad_mask - Indicator of padding locations to mask (so as to not contribute to attention)
+            target_pad_mask - Indicator of target padding locations to mask (so as to not contribute to attention)
+            memory_pad_mask - Indicator of source padding locations to mask (so as to not contribute to attention)
 
         Returns:
             x - The full-context decoder embedding (via (causal) multi-head self-attention and cross-attention mechanisms) of
@@ -58,14 +59,14 @@ class Decoder(nn.Module):
         original_size = x.size()
 
         # CAUSAL SELF-ATTENTION
-        MASKED_MHA = self.masked_mha(x.clone(), x.clone(), x.clone(), target_pad_mask)
+        MASKED_MHA = self.masked_mha(x.clone(), x.clone(), x.clone(), target_pad_mask, target_pad_mask)
         assert MASKED_MHA.size() == original_size
         x += MASKED_MHA
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         # CROSS-ATTENTION
-        MHA = self.mha(x.clone(), encoder_K, encoder_V, target_pad_mask)
+        MHA = self.mha(x.clone(), encoder_K, encoder_V, target_pad_mask, memory_pad_mask)
         assert MHA.size() == original_size
         x += MHA
         x = self.layer_norm_2(x)

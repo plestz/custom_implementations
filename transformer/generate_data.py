@@ -12,6 +12,9 @@ class RandomIntegerDataset(Dataset):
         Initializes the RandomIntegerDataset.
         """
         self.inputs, self.labels = generate_random_integer_sequences(min_seq_len, max_seq_len, num_sequences, vocab)
+        print(self.inputs[0].shape)
+        print(self.inputs[1].shape)
+        print(self.labels.shape)
 
     def __len__(self):
         """
@@ -32,7 +35,7 @@ def generate_random_integer_sequences(min_seq_len: int, max_seq_len: int, num_se
     targets = list() # decoder inputs
     labels = list() # ground truths
 
-    vocab_size = len(vocab)
+    vocab_size = len(vocab) # indices [0,...,len(vocab) - 1]
     PAD_TOKEN_IDX = vocab_size
     START_TOKEN_IDX = vocab_size + 1
     END_TOKEN_IDX = vocab_size + 2

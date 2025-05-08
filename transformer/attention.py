@@ -126,12 +126,12 @@ class MultiHeadAttention(nn.Module):
 
         assert non_padding.size() == (in_batch_size, in_seq_len_Q, in_seq_len_K)
 
-        # non_padding_h = non_padding.unsqueeze(1) # shape = (batch, 1, in_seq_len_Q, in_seq_len_K)
+        non_padding_h = non_padding.unsqueeze(1) # shape = (batch, 1, in_seq_len_Q, in_seq_len_K)
 
-        # assert non_padding_h.size() == (in_batch_size, 1, in_seq_len_Q, in_seq_len_K)
+        assert non_padding_h.size() == (in_batch_size, 1, in_seq_len_Q, in_seq_len_K)
 
-        # Q_KT_scaled_masked = Q_KT_scaled.masked_fill(~non_padding_h, float('-inf'))
-        Q_KT_scaled_masked = Q_KT_scaled.masked_fill(~non_padding, float('-inf')) # NOTE: PyTorch should understand to broadcast (B, Q, K) pad -> (B, 1, Q, K) -> (B, H, Q, K)
+        Q_KT_scaled_masked = Q_KT_scaled.masked_fill(~non_padding_h, float('-inf'))
+        # Q_KT_scaled_masked = Q_KT_scaled.masked_fill(~non_padding, float('-inf')) # NOTE: PyTorch should understand to broadcast (B, Q, K) pad -> (B, 1, Q, K) -> (B, H, Q, K)
 
         assert Q_KT_scaled_masked.size() == (in_batch_size, self.num_attention_heads, in_seq_len_Q, in_seq_len_K)
 

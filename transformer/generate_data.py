@@ -12,9 +12,6 @@ class RandomIntegerDataset(Dataset):
         Initializes the RandomIntegerDataset.
         """
         self.inputs, self.labels = generate_random_integer_sequences(min_seq_len, max_seq_len, num_sequences, vocab)
-        print(self.inputs[0].shape)
-        print(self.inputs[1].shape)
-        print(self.labels.shape)
 
     def __len__(self):
         """
@@ -28,8 +25,20 @@ class RandomIntegerDataset(Dataset):
         """
         return (self.inputs[0][idx], self.inputs[1][idx]), self.labels[idx]
 
-def generate_random_integer_sequences(min_seq_len: int, max_seq_len: int, num_sequences: int, vocab: list):
+def generate_random_integer_sequences(min_seq_len: int, max_seq_len: int, num_sequences: int, vocab: list) -> tuple[tuple[list[torch.Tensor], list[torch.Tensor]], list[torch.Tensor]]:
     """
+    Generate num_sequences of a size between min_seq_len and max_seq_len (both inclusive),
+    where elements are from vocab.
+
+    Args:
+        min_seq_len - The minimum sequence length that can be generated
+        max_seq_len - The maximum sequence length that can be generated
+        num_sequences - The number of sequences to be generated
+        vocab - The vocabulary from which to pull sequence elements (with replacement)
+
+    Returns:
+        (source_tensor, target_tensor) - The list of sources (for the encoder input) and targets (for the decoder input)
+        label_tensor - The list of labels (for comparison with the decoder output)
     """
     sources = list() # encoder inputs
     targets = list() # decoder inputs
@@ -37,21 +46,20 @@ def generate_random_integer_sequences(min_seq_len: int, max_seq_len: int, num_se
 
     vocab_size = len(vocab) # indices [0,...,len(vocab) - 1]
     PAD_TOKEN_IDX = vocab_size
-    START_TOKEN_IDX = vocab_size + 1
-    END_TOKEN_IDX = vocab_size + 2
+    SOS_TOKEN_IDX = vocab_size + 1
+    EOS_TOKEN_IDX = vocab_size + 2
 
     for _ in range(num_sequences):
-        seq_len = random.randint(min_seq_len, max_seq_len)
-        seq = random.sample(vocab, seq_len)
+        seq_len = random.randint(min_seq_len, max_seq_len) # inclusive of start and end
+        seq = random.choices(vocab, k = seq_len) # samples with replacement
+        sorted_seq = sorted(seq)
 
-        padding_required = max_seq_len - seq_len
-
-        source = torch.tensor(seq + [PAD_TOKEN_IDX] * padding_required) # Sequence Length = max_seq_len
-        target = torch.tensor([START_TOKEN_IDX] + sorted(seq) + [PAD_TOKEN_IDX] * padding_required) # Sequence Length = max_seq_len + 1
-        label = torch.tensor(sorted(seq) + [END_TOKEN_IDX] + [PAD_TOKEN_IDX] * padding_required) # Sequence Length = max_seq_len + 1
+        source = torch.tensor(seq)
+        target = torch.tensor([SOS_TOKEN_IDX] + sorted_seq)
+        label = torch.tensor(sorted_seq + [EOS_TOKEN_IDX])
 
         sources.append(source)
         targets.append(target)
         labels.append(label)
 
-    return (torch.stack(sources), torch.stack(targets)), torch.stack(labels)
+    return (sources, targets), labels

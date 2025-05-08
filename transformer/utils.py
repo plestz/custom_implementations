@@ -55,3 +55,41 @@ if __name__ == '__main__':
     # torch.Size([batch_size = 3, seq = 4, d_model = 3])
     assert padded[0].size() == (3, 4, 3)
     assert padded[1] == 4
+
+def padding_collate_fn(batch: list[tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]], pad_token_idx) -> tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+    """
+    Given a batch of sequences (each with a source, target, and label) of varying lengths, 
+    pad each set of sources, targets, and labels, up to their respective maximum length among all sequences.
+
+    Args:
+        batch - The batch of variable-length sequences to be padded
+
+    Returns:
+        (source_tensor, target_tensor) - The padded sources and targets for the input sequences
+        label_tensor - The padded labels for the input sequences
+    """
+    num_sequences = len(batch)
+
+    sources = [source for (source, _), _ in batch]
+    targets = [target for (_, target), _ in batch]
+    labels = [label for _, label in batch]
+
+    max_source_length = max(len(tensor) for tensor in sources)
+    max_target_length = max(len(tensor) for tensor in targets)
+    max_label_length = max(len(tensor) for tensor in labels)
+
+    # Pre-allocate tensors
+    source_tensor = torch.full((num_sequences, max_source_length), pad_token_idx, dtype = torch.long)
+    target_tensor = torch.full((num_sequences, max_target_length), pad_token_idx, dtype = torch.long)
+    label_tensor = torch.full((num_sequences, max_label_length), pad_token_idx, dtype = torch.long)
+
+    for i, source_seq in enumerate(sources):
+        source_tensor[i, :len(source_seq)] = source_seq
+
+    for i, target_seq in enumerate(targets):
+        target_tensor[i, :len(target_seq)] = target_seq
+
+    for i, label_seq in enumerate(labels):
+        label_tensor[i, :len(label_seq)] = label_seq
+
+    return (source_tensor, target_tensor), label_tensor

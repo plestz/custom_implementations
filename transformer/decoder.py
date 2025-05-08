@@ -29,7 +29,7 @@ class Decoder(nn.Module):
         self.activation = activation
         self.layer_norm_epsilon = layer_norm_epsilon
 
-        self.masked_mha = MultiHeadAttention(self.d_model, self.num_attention_heads, causal_mask = True)
+        self.masked_mha = MultiHeadAttention(self.d_model, self.num_attention_heads, enable_causal_mask = True)
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
         self.ff = FeedForward(self.d_model, self.d_ff, self.activation)
 

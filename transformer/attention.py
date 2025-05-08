@@ -106,7 +106,7 @@ class MultiHeadAttention(nn.Module):
         Q_batch_seq_lengths = Q_pad_mask.sum(dim = 1) # length of each sequence in batch (excluding PAD_TOKEN_IDX, see top of Transformer forward for creation)
         K_batch_seq_lengths = K_pad_mask.sum(dim = 1)
 
-        assert Q_batch_seq_lengths.size() == K_batch_seq_lengths == (in_batch_size,)
+        assert Q_batch_seq_lengths.size() == K_batch_seq_lengths.size() == (in_batch_size,)
 
         Q_seq_indices = torch.arange(in_seq_len_Q) 
         K_seq_indices = torch.arange(in_seq_len_K)

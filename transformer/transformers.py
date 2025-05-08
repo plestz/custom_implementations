@@ -8,7 +8,7 @@ from decoder import Decoder
 from embedding import Embedding, CustomEmbedding
 from utils import pad_batch_to_longest_seq_len
 
-class Transformer(nn.Module):
+class EncoderDecoderTransformer(nn.Module):
     """
     My custom implementation of a Transformer, based off of PyTorch's.
     """
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     # E = torch.randn(batch_size, seq, d_model) 
     # T = torch.randn(batch_size, seq, d_model) 
 
-    transformer = Transformer(embeddings = vocab_embeddings, vocab_size = vocab_size, d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 6, dim_feedforward = d_ff, max_context_window = 20)
+    transformer = EncoderDecoderTransformer(embeddings = vocab_embeddings, vocab_size = vocab_size, d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 6, dim_feedforward = d_ff, max_context_window = 20)
 
     out = transformer(source, target)
 

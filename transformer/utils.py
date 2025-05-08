@@ -21,14 +21,20 @@ def pad_batch_to_longest_seq_len(batch: list[torch.Tensor], pad_value = 0) -> tu
         padded_batch -- A 3D tensor of shape (batch_size, seq, d_model)
         max_seq - The maximum sequence length within the batch
     """
-    max_seq = max(batch[i].size(dim = 0) for i in range(len(batch)))
+    max_seq = max(tensor.size(dim = 0) for tensor in batch)
 
-    padded_sequences = [
-        F.pad(batch[i], (0, 0, 0, max_seq - batch[i].size(dim = 0)), value = pad_value) 
-        for i in range(len(batch))
-    ]
+    # Pre-allocate 3D tensor
+    padded_batch = torch.full(
+        (len(batch), max_seq, batch[0].size(dim = 1)), 
+        pad_value, 
+        dtype = batch[0].dtype
+    )
 
-    return torch.stack(padded_sequences, dim = 0).float(), max_seq
+    # Copy over batch sequences into pre-allocated tensor
+    for i, sequence in enumerate(batch):
+        padded_batch[i, :sequence.size(dim = 0)] = sequence
+
+    return padded_batch.float(), max_seq
 
 
 if __name__ == '__main__':
@@ -42,7 +48,10 @@ if __name__ == '__main__':
     print(sequences)
 
     # Verifies that output is sequences, with pad_value rows appended
-    print(pad_batch_to_longest_seq_len(sequences, pad_value = 0))
+    padded = pad_batch_to_longest_seq_len(sequences, pad_value = 0)
+
+    print(padded)
 
     # torch.Size([batch_size = 3, seq = 4, d_model = 3])
-    print(pad_batch_to_longest_seq_len(sequences, pad_value = 0).shape)
+    assert padded[0].size() == (3, 4, 3)
+    assert padded[1] == 4

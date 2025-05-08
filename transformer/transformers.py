@@ -40,11 +40,8 @@ class EncoderDecoderTransformer(nn.Module):
         """
         super().__init__()
 
-        if d_model % 2 != 0:
-            raise ValueError(f'd_model must be even, but was {d_model}.')
-        
-        if max_context_window % 2 != 0:
-            raise ValueError(f'max_context_window must be even, but was {max_context_window}.')
+        if d_model % num_attention_heads != 0:
+            raise ValueError(f'd_model must be evenly divisible by the number of attention heads, but {d_model} % {num_attention_heads} = {d_model % num_attention_heads}.')
 
         self.embeddings = embeddings
         self.vocab_size: int = vocab_size

@@ -83,8 +83,8 @@ class EncoderDecoderTransformer(nn.Module):
         """
         # At this point, source = (# sequences, unaltered sequence padded up to max_seq_len)
         # At this point, target = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
-        source_pad_mask = memory_pad_mask = (source != self.PAD_TOKEN).long()
-        target_pad_mask = (target != self.PAD_TOKEN).long()
+        source_pad_mask = (source != self.PAD_TOKEN).bool()
+        target_pad_mask = (target != self.PAD_TOKEN).bool()
 
         # The goal is turn the "batch" of (1, sequence)'s into the corresponding batch of (seq_i_len, d_model)
         source_embedding: torch.Tensor = self.embeddings(source)
@@ -92,6 +92,9 @@ class EncoderDecoderTransformer(nn.Module):
 
         source_batch_size, source_max_sequence_len = source.size()
         target_batch_size, target_max_sequence_len = target.size()
+
+        assert source_max_sequence_len < self.max_context_window
+        assert target_max_sequence_len < self.max_context_window
 
         assert source_embedding.size() == (source_batch_size, source_max_sequence_len, self.d_model)
         assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
@@ -110,7 +113,7 @@ class EncoderDecoderTransformer(nn.Module):
 
         decoder_output = decoder_input
         for i in range(self.num_decoder_layers):
-            decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask, memory_pad_mask)
+            decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
 
         # Project to Vocabulary Space
         logits = self.vocab_linear(decoder_output)
@@ -132,6 +135,7 @@ class EncoderDecoderTransformer(nn.Module):
         positional_encodings = np.empty((self.max_context_window, self.d_model))
 
         positions = np.arange(self.max_context_window).reshape(-1, 1)
+
         dimensions = np.arange(self.d_model // 2)
         scaling_factor = np.power(10000, 2 * dimensions / self.d_model).reshape(1, -1)
 
@@ -171,7 +175,15 @@ if __name__ == '__main__':
     # E = torch.randn(batch_size, seq, d_model) 
     # T = torch.randn(batch_size, seq, d_model) 
 
-    transformer = EncoderDecoderTransformer(embeddings = vocab_embeddings, vocab_size = vocab_size, d_model = d_model, num_attention_heads = n_heads, num_encoder_layers = 6, num_decoder_layers = 6, dim_feedforward = d_ff, max_context_window = 20)
+    transformer = EncoderDecoderTransformer(
+        embeddings = vocab_embeddings, 
+        vocab_size = vocab_size, 
+        d_model = d_model, 
+        num_attention_heads = n_heads, 
+        num_encoder_layers = 1, 
+        num_decoder_layers = 1, 
+        dim_feedforward = d_ff, 
+        max_context_window = 20)
 
     out = transformer(source, target)
 

@@ -53,7 +53,7 @@ class EncoderDecoderTransformer(nn.Module):
         self.activation: nn.Module = activation
         self.layer_norm_epsilon: float = layer_norm_epsilon
 
-        self.PAD_TOKEN = self.vocab_size - 3
+        self.PAD_TOKEN_IDX = self.vocab_size - 3
 
         # 1024 = GPT2
         self.max_context_window = max_context_window
@@ -83,8 +83,8 @@ class EncoderDecoderTransformer(nn.Module):
         """
         # At this point, source = (# sequences, unaltered sequence padded up to max_seq_len)
         # At this point, target = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
-        source_pad_mask = (source != self.PAD_TOKEN).bool()
-        target_pad_mask = (target != self.PAD_TOKEN).bool()
+        source_pad_mask = (source != self.PAD_TOKEN_IDX).bool()
+        target_pad_mask = (target != self.PAD_TOKEN_IDX).bool()
 
         # The goal is turn the "batch" of (1, sequence)'s into the corresponding batch of (seq_i_len, d_model)
         source_embedding: torch.Tensor = self.embeddings(source)

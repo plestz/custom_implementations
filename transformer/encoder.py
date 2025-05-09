@@ -10,7 +10,7 @@ class Encoder(nn.Module):
     a full-context encoding for each token that will be passed to subsequent
     encoders or the decoder.
     """
-    def __init__(self, d_model: int, num_attention_heads: int, d_ff: int, dropout: nn.Dropout, activation: nn.Module = nn.ReLU(), layer_norm_epsilon: float = 1e-5):
+    def __init__(self, d_model: int, num_attention_heads: int, d_ff: int, dropout: float, activation: nn.Module = nn.ReLU(), layer_norm_epsilon: float = 1e-5):
         """
         Encoder initializer.
 
@@ -18,7 +18,7 @@ class Encoder(nn.Module):
             d_model - The embedding & hidden dimension of the transformer
             num_attention_heads -- The number of attention heads
             d_ff - The feed-forward layer's hidden dimension 
-            dropout - The dropout layer to be applied
+            dropout - The dropout percentage for the network
             activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
             layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
         """
@@ -26,12 +26,15 @@ class Encoder(nn.Module):
         self.d_model: int = d_model
         self.num_attention_heads: int = num_attention_heads
         self.d_ff: int = d_ff
-        self.dropout: nn.Dropout = dropout
+        self.dropout: float = dropout
         self.activation: nn.Module = activation
         self.layer_norm_epsilon: float = layer_norm_epsilon
 
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
         self.ff = FeedForward(self.d_model, self.d_ff, self.activation, self.dropout)
+
+        self.dropout_1 = nn.Dropout(self.dropout)
+        self.dropout_2 = nn.Dropout(self.dropout)
 
         # Normalizes over the last dimension, d_model
         # Must be distinct to learn independent distribution parameters (gamma, beta)
@@ -55,13 +58,13 @@ class Encoder(nn.Module):
 
         MHA = self.mha(x, x, x, source_pad_mask, source_pad_mask) # Multi-head Attention Mechanism
         assert MHA.size() == original_size
-        x = x + self.dropout(MHA) # Residual Connection
+        x = x + self.dropout_1(MHA) # Residual Connection
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         FF = self.ff(x) # Feed-Forward Mechanism
         assert FF.size() == original_size
-        x = x + self.dropout(FF) # Residual Connection
+        x = x + self.dropout_2(FF) # Residual Connection
         x = self.layer_norm_2(x)
         assert x.size() == original_size
 

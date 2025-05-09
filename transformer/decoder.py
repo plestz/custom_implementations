@@ -10,7 +10,7 @@ class Decoder(nn.Module):
     encoder's output K and V, and feeds this forward through an MLP to obtain
     the final contextual embeddings.
     """
-    def __init__(self, d_model: int, num_attention_heads: int, d_ff: int, dropout: nn.Dropout, activation: nn.Module = nn.ReLU(), layer_norm_epsilon: float = 1e-5):
+    def __init__(self, d_model: int, num_attention_heads: int, d_ff: int, dropout: float, activation: nn.Module = nn.ReLU(), layer_norm_epsilon: float = 1e-5):
         """
         Decoder initializer.
 
@@ -18,7 +18,7 @@ class Decoder(nn.Module):
             d_model - The embedding & hidden dimension of the transformer
             num_attention_heads -- The number of attention heads
             d_ff - The feed-forward layer's hidden dimension 
-            dropout - The dropout layer to be applied
+            dropout - The dropout percentage for the network
             activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
             layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
         """
@@ -34,6 +34,10 @@ class Decoder(nn.Module):
         self.masked_mha = MultiHeadAttention(self.d_model, self.num_attention_heads, enable_causal_mask = True)
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
         self.ff = FeedForward(self.d_model, self.d_ff, self.activation, self.dropout)
+
+        self.dropout_1 = nn.Dropout(self.dropout)
+        self.dropout_2 = nn.Dropout(self.dropout)
+        self.dropout_3 = nn.Dropout(self.dropout)
 
         # Normalizes over the last dimension, d_model
         # Must be distinct to learn independent distribution parameters (gamma, beta)
@@ -63,20 +67,20 @@ class Decoder(nn.Module):
         # CAUSAL SELF-ATTENTION
         MASKED_MHA = self.masked_mha(x, x, x, target_pad_mask, target_pad_mask)
         assert MASKED_MHA.size() == original_size
-        x = x + self.dropout(MASKED_MHA)
+        x = x + self.dropout_1(MASKED_MHA)
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         # CROSS-ATTENTION
         MHA = self.mha(x, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
         assert MHA.size() == original_size
-        x = x + self.dropout(MHA)
+        x = x + self.dropout_2(MHA)
         x = self.layer_norm_2(x)
         assert x.size() == original_size
 
         FF = self.ff(x)
         assert FF.size() == original_size
-        x = x + self.dropout(FF)
+        x = x + self.dropout_3(FF)
         x = self.layer_norm_3(x)
         assert x.size() == original_size
 

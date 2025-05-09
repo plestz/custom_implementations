@@ -23,7 +23,9 @@ class EncoderDecoderTransformer(nn.Module):
                  dropout = 0.1,
                  activation = nn.ReLU(),
                  layer_norm_epsilon = 1e-5,
-                 max_context_window = 1024):
+                 max_context_window = 1024,
+                 use_pre_lnorm: bool = False,
+        ):
         """
         Transformer intitializer.
 
@@ -39,6 +41,7 @@ class EncoderDecoderTransformer(nn.Module):
             activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
             layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
             max_context_window - The maximum context window that this transformer will be used to process
+            use_pre_lnorm - A flag to determine whether to use pre-norm (if set to true) or post-norm (otherwise)
         """
         super().__init__()
 
@@ -55,6 +58,7 @@ class EncoderDecoderTransformer(nn.Module):
         self.dropout: float = dropout
         self.activation: nn.Module = activation
         self.layer_norm_epsilon: float = layer_norm_epsilon
+        self.use_pre_lnorm = use_pre_lnorm
 
         self.PAD_TOKEN_IDX = self.vocab_size - 3
 
@@ -66,8 +70,8 @@ class EncoderDecoderTransformer(nn.Module):
         self.dropout_encoder_embedding = nn.Dropout(self.dropout)
         self.dropout_decoder_embedding = nn.Dropout(self.dropout)
 
-        self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
-        self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
+        self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon, self.use_pre_lnorm) for _ in range(self.num_encoder_layers)])
+        self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon, self.use_pre_lnorm) for _ in range(self.num_decoder_layers)])
         
         self.final_layer_norm = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
@@ -192,7 +196,9 @@ if __name__ == '__main__':
         num_decoder_layers = 1, 
         dim_feedforward = d_ff, 
         dropout = 0.1,
-        max_context_window = 20)
+        max_context_window = 20,
+        use_pre_lnorm = True
+    )
 
     out = transformer(source, target)
 

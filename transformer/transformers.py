@@ -68,6 +68,8 @@ class EncoderDecoderTransformer(nn.Module):
 
         self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
         self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
+        
+        self.final_layer_norm = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
 
     def forward(self, source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -121,8 +123,11 @@ class EncoderDecoderTransformer(nn.Module):
         for i in range(self.num_decoder_layers):
             decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
 
+        # Final layer norm before projection for stabilization
+        norm_output = self.final_layer_norm(decoder_output)
+
         # Project to Vocabulary Space
-        logits = self.vocab_linear(decoder_output)
+        logits = self.vocab_linear(norm_output)
 
         return logits
 

@@ -30,6 +30,8 @@ def generate_random_integer_sequences(min_seq_len: int, max_seq_len: int, num_se
     Generate num_sequences of a size between min_seq_len and max_seq_len (both inclusive),
     where elements are from vocab.
 
+    This function does not perform any sequence padding.
+
     Args:
         min_seq_len - The minimum sequence length that can be generated
         max_seq_len - The maximum sequence length that can be generated
@@ -37,7 +39,7 @@ def generate_random_integer_sequences(min_seq_len: int, max_seq_len: int, num_se
         vocab - The vocabulary from which to pull sequence elements (with replacement)
 
     Returns:
-        (source_tensor, target_tensor) - The list of sources (for the encoder input) and targets (for the decoder input)
+        (source_tensor, target_tensor) - The list of sources (for the encoder input) and targets (for the decoder input).
         label_tensor - The list of labels (for comparison with the decoder output)
     """
     sources = list() # encoder inputs

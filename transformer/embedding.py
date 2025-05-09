@@ -68,8 +68,7 @@ class CustomEmbedding(Embedding):
             vocab_size: The total size of the vocabulary of the model
             d_model: The embedding dimension of the model
         """
-        self.embeddings = nn.Embedding(vocab_size, d_model)
-        super().__init__(self.embeddings)
+        super().__init__(nn.Embedding(vocab_size, d_model))
 
 # if __name__ == '__main__':
     

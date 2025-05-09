@@ -63,7 +63,9 @@ class EncoderDecoderTransformer(nn.Module):
 
         self.positional_encodings = self.get_all_positional_encodings().float()
 
-        self.dropout_embedding = nn.Dropout(self.dropout)
+        self.dropout_encoder_embedding = nn.Dropout(self.dropout)
+        self.dropout_decoder_embedding = nn.Dropout(self.dropout)
+
         self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
         self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
         self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
@@ -104,7 +106,7 @@ class EncoderDecoderTransformer(nn.Module):
         assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
 
         # Encoders (Sequential Processing)
-        encoder_input = self.dropout_embedding(source_embedding + self.positional_encodings[:source_max_sequence_len].unsqueeze(0))
+        encoder_input = self.dropout_encoder_embedding(source_embedding + self.positional_encodings[:source_max_sequence_len].unsqueeze(0))
 
         encoder_output = encoder_input
         for i in range(self.num_encoder_layers):
@@ -113,7 +115,7 @@ class EncoderDecoderTransformer(nn.Module):
         encoder_K, encoder_V = encoder_output, encoder_output
 
         # Decoders (Sequential Processing)
-        decoder_input = target_embedding + self.positional_encodings[:target_max_sequence_len].unsqueeze(0)
+        decoder_input = self.dropout_decoder_embedding(target_embedding + self.positional_encodings[:target_max_sequence_len].unsqueeze(0))
 
         decoder_output = decoder_input
         for i in range(self.num_decoder_layers):

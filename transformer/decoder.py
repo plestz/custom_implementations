@@ -33,7 +33,7 @@ class Decoder(nn.Module):
 
         self.masked_mha = MultiHeadAttention(self.d_model, self.num_attention_heads, enable_causal_mask = True)
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
-        self.ff = FeedForward(self.d_model, self.d_ff, self.activation)
+        self.ff = FeedForward(self.d_model, self.d_ff, self.activation, self.dropout)
 
         # Normalizes over the last dimension, d_model
         # Must be distinct to learn independent distribution parameters (gamma, beta)
@@ -61,14 +61,14 @@ class Decoder(nn.Module):
         original_size = x.size()
 
         # CAUSAL SELF-ATTENTION
-        MASKED_MHA = self.masked_mha(x.clone(), x.clone(), x.clone(), target_pad_mask, target_pad_mask)
+        MASKED_MHA = self.masked_mha(x, x, x, target_pad_mask, target_pad_mask)
         assert MASKED_MHA.size() == original_size
         x = x + self.dropout(MASKED_MHA)
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         # CROSS-ATTENTION
-        MHA = self.mha(x.clone(), encoder_K, encoder_V, target_pad_mask, source_pad_mask)
+        MHA = self.mha(x, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
         assert MHA.size() == original_size
         x = x + self.dropout(MHA)
         x = self.layer_norm_2(x)

@@ -31,7 +31,7 @@ class Encoder(nn.Module):
         self.layer_norm_epsilon: float = layer_norm_epsilon
 
         self.mha = MultiHeadAttention(self.d_model, self.num_attention_heads)
-        self.ff = FeedForward(self.d_model, self.d_ff, self.activation)
+        self.ff = FeedForward(self.d_model, self.d_ff, self.activation, self.dropout)
 
         # Normalizes over the last dimension, d_model
         # Must be distinct to learn independent distribution parameters (gamma, beta)

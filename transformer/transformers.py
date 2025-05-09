@@ -109,7 +109,7 @@ class EncoderDecoderTransformer(nn.Module):
         for i in range(self.num_encoder_layers):
             encoder_output = self.encoders[i](encoder_output, source_pad_mask)
 
-        encoder_K, encoder_V = encoder_output.clone(), encoder_output.clone()
+        encoder_K, encoder_V = encoder_output, encoder_output
 
         # Decoders (Sequential Processing)
         decoder_input = target_embedding + self.positional_encodings[:target_max_sequence_len].unsqueeze(0)

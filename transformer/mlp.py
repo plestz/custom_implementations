@@ -6,7 +6,7 @@ class FeedForward(nn.Module):
     Fully-connected feed-forward network to be used at the end of each
     encoder/decoder sequence.
     """
-    def __init__(self, d_model: int, d_ff: int, activation: nn.Module):
+    def __init__(self, d_model: int, d_ff: int, activation: nn.Module, dropout: nn.Dropout):
         """
         FeedForward network layer initializer.
 
@@ -14,15 +14,18 @@ class FeedForward(nn.Module):
             d_model - The embedding & hidden dimension of the transformer
             d_ff - The feed-forward layer's hidden dimension 
             activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
+            dropout - The dropout layer to be applied
         """
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff
         self.activation = activation
+        self.dropout = dropout
 
         self.layers = nn.Sequential(
             nn.Linear(self.d_model, self.d_ff),
             self.activation,
+            self.dropout,
             nn.Linear(self.d_ff, self.d_model)
         )
 

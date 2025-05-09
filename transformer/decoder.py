@@ -61,20 +61,20 @@ class Decoder(nn.Module):
         # CAUSAL SELF-ATTENTION
         MASKED_MHA = self.masked_mha(x.clone(), x.clone(), x.clone(), target_pad_mask, target_pad_mask)
         assert MASKED_MHA.size() == original_size
-        x += MASKED_MHA
+        x = x + MASKED_MHA
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         # CROSS-ATTENTION
         MHA = self.mha(x.clone(), encoder_K, encoder_V, target_pad_mask, source_pad_mask)
         assert MHA.size() == original_size
-        x += MHA
+        x = x + MHA
         x = self.layer_norm_2(x)
         assert x.size() == original_size
 
         FF = self.ff(x)
         assert FF.size() == original_size
-        x += FF
+        x = x + FF
         x = self.layer_norm_3(x)
         assert x.size() == original_size
 

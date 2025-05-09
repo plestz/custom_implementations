@@ -53,13 +53,13 @@ class Encoder(nn.Module):
 
         MHA = self.mha(x, x, x, source_pad_mask, source_pad_mask) # Multi-head Attention Mechanism
         assert MHA.size() == original_size
-        x += MHA # Residual Connection
+        x = x + MHA # Residual Connection
         x = self.layer_norm_1(x)
         assert x.size() == original_size
 
         FF = self.ff(x) # Feed-Forward Mechanism
         assert FF.size() == original_size
-        x += FF # Residual Connection
+        x = x + FF # Residual Connection
         x = self.layer_norm_2(x)
         assert x.size() == original_size
 

@@ -102,7 +102,7 @@ class MultiHeadAttention(nn.Module):
             assert in_seq_len_Q == in_seq_len_K # Should not enter this block during cross-attention
             neg_inf_matrix = torch.full_like(Q_KT_scaled[0][0], float('-inf'))
             neg_inf_mask = neg_inf_matrix.triu(diagonal = 1) # if called on 4D tensor, triu applies batch*h times to each (seq, seq) dimension, only operates on 2D matrix
-            Q_KT_scaled += neg_inf_mask # if 2D tensor, (seq, seq) will broadcast into (batch_size, h, seq, seq) to mask each (seq, seq)
+            Q_KT_scaled = Q_KT_scaled + neg_inf_mask # if 2D tensor, (seq, seq) will broadcast into (batch_size, h, seq, seq) to mask each (seq, seq)
 
         # PAD MASK
         assert Q_pad_mask.ndim == K_pad_mask.ndim == 2

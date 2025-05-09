@@ -118,10 +118,7 @@ class EncoderDecoderTransformer(nn.Module):
         # Project to Vocabulary Space
         logits = self.vocab_linear(decoder_output)
 
-        # Normalize Scores for Next Word Probabilities
-        next_word_probs = torch.softmax(logits, dim = -1)
-
-        return next_word_probs
+        return logits
 
     def get_all_positional_encodings(self) -> torch.Tensor:
         """

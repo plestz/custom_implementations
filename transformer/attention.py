@@ -56,14 +56,16 @@ class MultiHeadAttention(nn.Module):
             MHA - The result of a Multi-head Attention mechanism on E of shape
             (batch_size, seq, d_model).
         """
+        # import pdb; pdb.set_trace()
         in_batch_size, in_seq_len_Q, _ = in_Q.size()
         _, in_seq_len_K, _ = in_K.size()
 
         Q, K, V = self.W_Q(in_Q), self.W_K(in_K), self.W_V(in_V) # all (batch_size, seq, d_model)
         K_T = torch.transpose(K, 1, 2) 
 
-        assert Q.size() == V.size() == (in_batch_size, in_seq_len_Q, self.d_model)
+        assert Q.size() == (in_batch_size, in_seq_len_Q, self.d_model)
         assert K_T.size() == (in_batch_size, self.d_model, in_seq_len_K)
+        assert V.size() == (in_batch_size, in_seq_len_K, self.d_model)
 
         # Note: In XTransformerClass, we ensured that d_model % h = 0. So, chunks will be of even sizes. Note that torch.chunk does not guarantee this.
         Q_h = torch.chunk(Q, self.num_attention_heads, dim = 2) # tuple of h tensors of shape (batch_size, seq, d_k = d_model // h)
@@ -78,8 +80,9 @@ class MultiHeadAttention(nn.Module):
         K_T_h_stack = torch.stack(K_T_h, dim = 1)
         V_h_stack = torch.stack(V_h, dim = 1)
 
-        assert Q_h_stack.size() == V_h_stack.size() == (in_batch_size, self.num_attention_heads, in_seq_len_Q, self.d_k)
+        assert Q_h_stack.size() == (in_batch_size, self.num_attention_heads, in_seq_len_Q, self.d_k)
         assert K_T_h_stack.size() == (in_batch_size, self.num_attention_heads, self.d_k, in_seq_len_K)
+        assert V_h_stack.size() == (in_batch_size, self.num_attention_heads, in_seq_len_K, self.d_k)
 
         # Within each batch element, between the matching batch index Q = Q_h_stack[i] and K = K_T_h_stack[i],
         # we will perform h (Q @ K_T) matrix multiplications, producing a new set (of len h) of tensors

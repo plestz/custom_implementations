@@ -20,6 +20,7 @@ class EncoderDecoderTransformer(nn.Module):
                  num_encoder_layers = 6,
                  num_decoder_layers = 6,
                  dim_feedforward = 2048,
+                 dropout = 0.1,
                  activation = nn.ReLU(),
                  layer_norm_epsilon = 1e-5,
                  max_context_window = 1024):
@@ -34,6 +35,7 @@ class EncoderDecoderTransformer(nn.Module):
             num_encoder_layers - The number of sequential encoder blocks in the network
             num_decoder_layers - The number of sequential decoder blocks in the network
             dim_feedforward - The feed-forward layer's hidden dimension 
+            dropout - The dropout percentage for the network
             activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
             layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
             max_context_window - The maximum context window that this transformer will be used to process
@@ -50,6 +52,7 @@ class EncoderDecoderTransformer(nn.Module):
         self.num_encoder_layers: int = num_encoder_layers
         self.num_decoder_layers: int = num_decoder_layers
         self.dim_feedforward: int = dim_feedforward
+        self.dropout = nn.Dropout(dropout)
         self.activation: nn.Module = activation
         self.layer_norm_epsilon: float = layer_norm_epsilon
 
@@ -60,8 +63,8 @@ class EncoderDecoderTransformer(nn.Module):
 
         self.positional_encodings = self.get_all_positional_encodings().float()
 
-        self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
-        self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
+        self.encoders = nn.ModuleList([Encoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_encoder_layers)])
+        self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon) for _ in range(self.num_decoder_layers)])
         self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
 
     def forward(self, source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -100,7 +103,7 @@ class EncoderDecoderTransformer(nn.Module):
         assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
 
         # Encoders (Sequential Processing)
-        encoder_input = source_embedding + self.positional_encodings[:source_max_sequence_len].unsqueeze(0)
+        encoder_input = self.dropout(source_embedding + self.positional_encodings[:source_max_sequence_len].unsqueeze(0))
 
         encoder_output = encoder_input
         for i in range(self.num_encoder_layers):
@@ -180,6 +183,7 @@ if __name__ == '__main__':
         num_encoder_layers = 1, 
         num_decoder_layers = 1, 
         dim_feedforward = d_ff, 
+        dropout = 0.1,
         max_context_window = 20)
 
     out = transformer(source, target)

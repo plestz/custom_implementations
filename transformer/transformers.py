@@ -86,30 +86,51 @@ class EncoderDecoderTransformer(nn.Module):
         paper 'Attention Is All You Need', so there is an encoder and decoder.
 
         Args:
-            source -- Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
-            target -- Decoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+            source - Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+            target - Decoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
 
         Returns:
-            next_word_probs -- For each seq_i in decoder, produces the next_word_probabilities
-            corresponding to the next most likely word.
+            next_word_probs - For each seq_i in the layer-normalized decoder_output, 
+            produces the next_word_probabilities corresponding to the next most likely word.
+        """
+        # Encoder Block
+        encoder_output, source_pad_mask = self.encode(source)
+
+        # Decoder Block
+        decoder_output, _ = self.decode(target, encoder_output, source_pad_mask)
+
+        # Final layer norm before projection for stabilization
+        norm_output = self.final_layer_norm(decoder_output)
+
+        # Project to Vocabulary Space
+        logits = self.vocab_linear(norm_output)
+
+        return logits
+    
+    def encode(self, source: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Performs one full forward pass through the *encoder* block of the Transformer.
+
+        Takes the padded batch of input sequences and outputs a [B,S,D] encoded
+        representation Tensor of the source context (bi-directional).
+
+        Args:
+            source - Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+
+        Returns:
+            encoder_output - The output of the entire encoder block after bi-directional embedding contextualization
+            source_pad_mask - The padding mask pertaining to the entire source batch
         """
         # At this point, source = (# sequences, unaltered sequence padded up to max_seq_len)
-        # At this point, target = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
         source_pad_mask = (source != self.PAD_TOKEN_IDX).bool()
-        target_pad_mask = (target != self.PAD_TOKEN_IDX).bool()
 
-        # The goal is turn the "batch" of (1, sequence)'s into the corresponding batch of (seq_i_len, d_model)
+        # The goal is turn the "batch" of (1, sequence)'s into the corresponding (3D) batch of (seq_i_len, d_model)
         source_embedding: torch.Tensor = self.embeddings(source)
-        target_embedding: torch.Tensor = self.embeddings(target)
 
         source_batch_size, source_max_sequence_len = source.size()
-        target_batch_size, target_max_sequence_len = target.size()
 
         assert source_max_sequence_len < self.max_context_window
-        assert target_max_sequence_len < self.max_context_window
-
         assert source_embedding.size() == (source_batch_size, source_max_sequence_len, self.d_model)
-        assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
 
         # Encoders (Sequential Processing)
         encoder_input = self.dropout_encoder_embedding(source_embedding + self.positional_encodings[:source_max_sequence_len].unsqueeze(0))
@@ -117,6 +138,36 @@ class EncoderDecoderTransformer(nn.Module):
         encoder_output = encoder_input
         for i in range(self.num_encoder_layers):
             encoder_output = self.encoders[i](encoder_output, source_pad_mask)
+
+        return encoder_output, source_pad_mask
+    
+    def decode(self, target: torch.Tensor, encoder_output: torch.Tensor, source_pad_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Performs one full forward pass through the *decoder* block of the Transformer.
+
+        Takes the encoder input and outputs a [B,S,D] Tensor that encapsulates, for every
+        target token embedding, (1) the entire source context, and (2) its left-context
+        within the batch.
+
+        Args:
+            target - Decoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+            encoder_output - The output of the entire encoder block after bi-directional embedding contextualization
+            source_pad_mask - The padding mask pertaining to the entire source batch
+
+        Returns:
+            decoder_output - The output of the entire decoder block after contextualization (see function description).
+            target_pad_mask - The padding mask pertaining to the entire target batch
+        """
+        # At this point, target = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
+        target_pad_mask = (target != self.PAD_TOKEN_IDX).bool()
+
+        # The goal is turn the "batch" of (1, sequence)'s into the corresponding (3D) batch of (seq_i_len, d_model)
+        target_embedding: torch.Tensor = self.embeddings(target)
+
+        target_batch_size, target_max_sequence_len = target.size()
+
+        assert target_max_sequence_len < self.max_context_window
+        assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
 
         encoder_K, encoder_V = encoder_output, encoder_output
 
@@ -127,13 +178,7 @@ class EncoderDecoderTransformer(nn.Module):
         for i in range(self.num_decoder_layers):
             decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
 
-        # Final layer norm before projection for stabilization
-        norm_output = self.final_layer_norm(decoder_output)
-
-        # Project to Vocabulary Space
-        logits = self.vocab_linear(norm_output)
-
-        return logits
+        return decoder_output, target_pad_mask
 
     def get_all_positional_encodings(self) -> torch.Tensor:
         """

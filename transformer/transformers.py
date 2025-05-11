@@ -99,11 +99,8 @@ class EncoderDecoderTransformer(nn.Module):
         # Decoder Block
         decoder_output, _ = self.decode(target, encoder_output, source_pad_mask)
 
-        # Final layer norm before projection for stabilization
-        norm_output = self.final_layer_norm(decoder_output)
-
-        # Project to Vocabulary Space
-        logits = self.vocab_linear(norm_output)
+        # Project into Vocabulary (+ Final LayerNorm)
+        logits = self.project_into_vocab(decoder_output)
 
         return logits
     

@@ -129,7 +129,7 @@ class EncoderDecoderTransformer(nn.Module):
 
         source_batch_size, source_max_sequence_len = source.size()
 
-        assert source_max_sequence_len < self.max_context_window
+        assert source_max_sequence_len <= self.max_context_window
         assert source_embedding.size() == (source_batch_size, source_max_sequence_len, self.d_model)
 
         # Encoders (Sequential Processing)
@@ -166,7 +166,7 @@ class EncoderDecoderTransformer(nn.Module):
 
         target_batch_size, target_max_sequence_len = target.size()
 
-        assert target_max_sequence_len < self.max_context_window
+        assert target_max_sequence_len <= self.max_context_window
         assert target_embedding.size() == (target_batch_size, target_max_sequence_len, self.d_model)
 
         encoder_K, encoder_V = encoder_output, encoder_output
@@ -179,6 +179,17 @@ class EncoderDecoderTransformer(nn.Module):
             decoder_output = self.decoders[i](decoder_output, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
 
         return decoder_output, target_pad_mask
+    
+    def project_into_vocab(self, decoder_output: torch.Tensor) -> torch.Tensor:
+        """
+        """
+        # Final layer norm before projection for stabilization
+        norm_output = self.final_layer_norm(decoder_output)
+
+        # Project to Vocabulary Space
+        logits = self.vocab_linear(norm_output)
+
+        return logits
 
     def get_all_positional_encodings(self) -> torch.Tensor:
         """

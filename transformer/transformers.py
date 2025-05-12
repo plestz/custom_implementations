@@ -179,6 +179,14 @@ class EncoderDecoderTransformer(nn.Module):
     
     def project_into_vocab(self, decoder_output: torch.Tensor) -> torch.Tensor:
         """
+        Projects the output of the decoder into the vocabulary space with
+        corresponding non-negative logits for every token.
+
+        Args:
+            decoder_output - The output of the entire decoder block after contextualization.
+
+        Returns:
+            logits - The logits corresponding to the raw, unnormalized probabilities of each token in the vocabulary
         """
         # Final layer norm before projection for stabilization
         norm_output = self.final_layer_norm(decoder_output)

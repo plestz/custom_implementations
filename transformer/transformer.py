@@ -8,23 +8,27 @@ from decoder import Decoder
 from embedding import Embedding, CustomEmbedding
 from utils import pad_batch_to_longest_seq_len
 
-class EncoderDecoderTransformer(nn.Module):
+from abc import ABC, abstractmethod
+
+class Transformer(ABC, nn.Module):
     """
-    My custom implementation of a Transformer, based off of PyTorch's.
+    An abstract class of a Transformer. 
+
+    Subclasses are EncoderDecoder, Encoder-only, and Decoder-only varieties.
+
+    Classes are loosely based off of PyTorch's argument structure.
     """
-    def __init__(self, 
+    def __init__(self,
                  embeddings: CustomEmbedding,
                  vocab_size: int,
-                 d_model = 512, 
-                 num_attention_heads = 8, 
-                 num_encoder_layers = 6,
-                 num_decoder_layers = 6,
-                 dim_feedforward = 2048,
-                 dropout = 0.1,
-                 activation = nn.ReLU(),
-                 layer_norm_epsilon = 1e-5,
-                 max_context_window = 1024,
-                 use_pre_lnorm: bool = False,
+                 d_model: int = 512,
+                 num_attention_heads: int = 8,
+                 dim_feedforward: int = 2048,
+                 dropout: float = 0.1,
+                 activation: nn.Module = nn.ReLU(),
+                 layer_norm_epsilon: float = 1e-5,
+                 max_context_window: int = 1024,
+                 use_pre_lnorm: bool = False
         ):
         """
         Transformer intitializer.
@@ -34,8 +38,6 @@ class EncoderDecoderTransformer(nn.Module):
             vocab_size - The size of the vocabulary that this transformer will process
             d_model - The embedding & hidden dimension of the transformer
             num_attention_heads - The number of attention heads
-            num_encoder_layers - The number of sequential encoder blocks in the network
-            num_decoder_layers - The number of sequential decoder blocks in the network
             dim_feedforward - The feed-forward layer's hidden dimension 
             dropout - The dropout percentage for the network
             activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
@@ -52,20 +54,102 @@ class EncoderDecoderTransformer(nn.Module):
         self.vocab_size: int = vocab_size
         self.d_model: int = d_model
         self.num_attention_heads: int = num_attention_heads
-        self.num_encoder_layers: int = num_encoder_layers
-        self.num_decoder_layers: int = num_decoder_layers
         self.dim_feedforward: int = dim_feedforward
         self.dropout: float = dropout
         self.activation: nn.Module = activation
         self.layer_norm_epsilon: float = layer_norm_epsilon
+        self.max_context_window = max_context_window
         self.use_pre_lnorm = use_pre_lnorm
 
         self.PAD_TOKEN_IDX = self.vocab_size - 3
 
-        # 1024 = GPT2
-        self.max_context_window = max_context_window
-
         self.positional_encodings = self.get_all_positional_encodings().float()
+
+    @abstractmethod
+    def forward(self, x):
+        """
+        Abstract requirement to implement a method that performs full forward 
+        pass through the model in subclasses.
+        """
+        pass
+
+    def get_all_positional_encodings(self) -> torch.Tensor:
+        """
+        Produces all possible positional encodings according to the maximum
+        context window and d_model, to be stored once at transformer creation.
+
+        Returns:
+            positional_encodings - All possible positional encodings in the shape
+            of (seq, d_model)
+        """
+        positional_encodings = np.empty((self.max_context_window, self.d_model))
+
+        positions = np.arange(self.max_context_window).reshape(-1, 1)
+
+        dimensions = np.arange(self.d_model // 2)
+        scaling_factor = np.power(10000, 2 * dimensions / self.d_model).reshape(1, -1)
+
+        # Note: np.divide broadcasts two arrays of type [N, 1], [1, M] to [N, M]
+        raw_encodings = np.divide(positions, scaling_factor)
+        sin_encodings = np.sin(raw_encodings)
+        cos_encodings = np.cos(raw_encodings)
+
+        positional_encodings[np.ix_(positions.flatten(), dimensions * 2)] = sin_encodings
+        positional_encodings[np.ix_(positions.flatten(), dimensions * 2 + 1)] = cos_encodings
+
+        return torch.from_numpy(positional_encodings)
+
+class EncoderDecoderTransformer(Transformer):
+    """
+    My custom implementation of an EncoderDecoder Transformer,
+    based off of the 2017 research paper 'Attention Is All You Need'.
+    """
+    def __init__(self, 
+                 embeddings: CustomEmbedding,
+                 vocab_size: int,
+                 d_model = 512, 
+                 num_attention_heads = 8, 
+                 num_encoder_layers = 6,
+                 num_decoder_layers = 6,
+                 dim_feedforward = 2048,
+                 dropout = 0.1,
+                 activation = nn.ReLU(),
+                 layer_norm_epsilon = 1e-5,
+                 max_context_window = 1024,
+                 use_pre_lnorm: bool = False,
+        ):
+        """
+        Encoder-Decoder Transformer intitializer.
+
+        Args:
+            embeddings - A container for all of the word embeddings in the vocabulary (including PAD, SOS, EOS)
+            vocab_size - The size of the vocabulary that this transformer will process
+            d_model - The embedding & hidden dimension of the transformer
+            num_attention_heads - The number of attention heads
+            num_encoder_layers - The number of sequential encoder blocks in the network
+            num_decoder_layers - The number of sequential decoder blocks in the network
+            dim_feedforward - The feed-forward layer's hidden dimension 
+            dropout - The dropout percentage for the network
+            activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
+            layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
+            max_context_window - The maximum context window that this transformer will be used to process
+            use_pre_lnorm - A flag to determine whether to use pre-norm (if set to true) or post-norm (otherwise)
+        """
+        super().__init__(
+            embeddings,
+            vocab_size,
+            d_model,
+            num_attention_heads,
+            dim_feedforward,
+            dropout,
+            activation,
+            layer_norm_epsilon,
+            max_context_window,
+            use_pre_lnorm
+        )
+
+        self.num_encoder_layers: int = num_encoder_layers
+        self.num_decoder_layers: int = num_decoder_layers
 
         self.dropout_encoder_embedding = nn.Dropout(self.dropout)
         self.dropout_decoder_embedding = nn.Dropout(self.dropout)
@@ -195,32 +279,6 @@ class EncoderDecoderTransformer(nn.Module):
         logits = self.vocab_linear(norm_output)
 
         return logits
-
-    def get_all_positional_encodings(self) -> torch.Tensor:
-        """
-        Produces all possible positional encodings according to the maximum
-        context window and d_model, to be stored once at transformer creation.
-
-        Returns:
-            positional_encodings - All possible positional encodings in the shape
-            of (seq, d_model)
-        """
-        positional_encodings = np.empty((self.max_context_window, self.d_model))
-
-        positions = np.arange(self.max_context_window).reshape(-1, 1)
-
-        dimensions = np.arange(self.d_model // 2)
-        scaling_factor = np.power(10000, 2 * dimensions / self.d_model).reshape(1, -1)
-
-        # Note: np.divide broadcasts two arrays of type [N, 1], [1, M] to [N, M]
-        raw_encodings = np.divide(positions, scaling_factor)
-        sin_encodings = np.sin(raw_encodings)
-        cos_encodings = np.cos(raw_encodings)
-
-        positional_encodings[np.ix_(positions.flatten(), dimensions * 2)] = sin_encodings
-        positional_encodings[np.ix_(positions.flatten(), dimensions * 2 + 1)] = cos_encodings
-
-        return torch.from_numpy(positional_encodings)
     
 if __name__ == '__main__':
 

@@ -1,4 +1,5 @@
 transformer/embeddings
+transformer/data
 
 .vscode/
 *.py[cod]

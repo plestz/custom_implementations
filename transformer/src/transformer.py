@@ -3,10 +3,10 @@ import torch.nn as nn
 
 import numpy as np
 
-from encoder import Encoder
-from decoder import Decoder
-from embedding import Embedding, CustomEmbedding
-from utils import pad_batch_to_longest_seq_len
+from src.encoder import Encoder
+from src.decoder import Decoder
+from src.embedding import Embedding, CustomEmbedding
+from src.utils import pad_batch_to_longest_seq_len
 
 from abc import ABC, abstractmethod
 

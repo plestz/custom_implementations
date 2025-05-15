@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from attention import MultiHeadAttention
-from mlp import FeedForward
+from src.attention import MultiHeadAttention
+from src.mlp import FeedForward
 
 class Decoder(nn.Module):
     """

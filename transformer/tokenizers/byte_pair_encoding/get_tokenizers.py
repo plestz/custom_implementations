@@ -1,34 +1,63 @@
 from tokenizers import ByteLevelBPETokenizer
 from transformers import PreTrainedTokenizerFast
 
-def train_and_save_tokenizer_for(file_path: str):
-
+def train_and_save_tokenizer_for(in_file_paths: list[str], 
+                                 out_file_dir_path: str = None,
+                                 include_vocab_and_merges: bool = False,
+                                 vocab_size: int = 10_000, 
+                                 min_frequency: int = 2, 
+                                 special_tokens: list[str] = ['<SOS>', '<EOS>', '<PAD>', '<UNK>', '<MASK>']) -> ByteLevelBPETokenizer:
+    """
+    """
     tokenizer = ByteLevelBPETokenizer()
 
     tokenizer.train(
-        files = [file_path],
-        vocab_size = 10_000,
-        min_frequency = 2,
-        special_tokens = ['<SOS>', '<EOS>', '<PAD>', '<UNK>', '<MASK>'],
+        files = in_file_paths,
+        vocab_size = vocab_size,
+        min_frequency = min_frequency,
+        special_tokens = special_tokens
     )
 
-    tokenizer.save("../trained_tokenizers/SAMSum_BPE/tokenizer.json")
-    tokenizer.save_model("../trained_tokenizers/SAMSum_BPE")
+    if out_file_dir_path and out_file_dir_path[-1] != '/':
+        out_file_dir_path += '/'
 
-def load_tokenizer_from(file_path: str):
-
-    tokenizer = PreTrainedTokenizerFast(
-        tokenizer_file = '../trained_tokenizers/SAMSum_BPE/tokenizer.json',
-        vocab_file = '../trained_tokenizers/SAMSum_BPE/vocab.json',
-        merges_file = '../trained_tokenizers/SAMSum_BPE/merges.txt',
-        bos_token = '<SOS>',
-        eos_token = '<EOS>',
-        pad_token = '<PAD>',
-        unk_token = '<UNK>',
-        mask_token = '<MASK>'
-    )
+    if out_file_dir_path:
+        tokenizer.save(out_file_dir_path + 'tokenizer.json')
+    
+        if include_vocab_and_merges:
+            tokenizer.save_model(out_file_dir_path)
 
     return tokenizer
+
+def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokenizer = None) -> PreTrainedTokenizerFast:
+    """
+    """
+    if (dir_path and tokenizer_obj) or not (dir_path or tokenizer_obj):
+        raise ValueError('Cannot provide both a directory path and a tokenizer object.')
+    
+    if dir_path and dir_path[-1] != '/':
+        dir_path += '/'
+
+    if dir_path:
+        pretrained_tokenizer = PreTrainedTokenizerFast(
+            tokenizer_file = dir_path + 'tokenizer.json',
+            bos_token = '<SOS>',
+            eos_token = '<EOS>',
+            pad_token = '<PAD>',
+            unk_token = '<UNK>',
+            mask_token = '<MASK>'
+        )
+    else:
+        pretrained_tokenizer = PreTrainedTokenizerFast(
+            tokenizer_obj = tokenizer_obj,
+            bos_token = '<SOS>',
+            eos_token = '<EOS>',
+            pad_token = '<PAD>',
+            unk_token = '<UNK>',
+            mask_token = '<MASK>'
+        )
+
+    return pretrained_tokenizer
 
 if __name__ == '__main__':
 

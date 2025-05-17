@@ -61,7 +61,3 @@ def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokeniz
         )
 
     return pretrained_tokenizer
-
-if __name__ == '__main__':
-
-    train_and_save_tokenizer_for('../../data/SAMSum/train_summary_and_dialogue.txt')

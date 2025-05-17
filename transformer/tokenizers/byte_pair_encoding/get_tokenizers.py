@@ -29,7 +29,7 @@ def train_and_save_tokenizer_for(in_file_paths: list[str],
 
     return tokenizer
 
-def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokenizer = None) -> PreTrainedTokenizerFast:
+def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokenizer = None, model_max_length: int = 512) -> PreTrainedTokenizerFast:
     """
     """
     if (dir_path and tokenizer_obj) or not (dir_path or tokenizer_obj):
@@ -41,6 +41,7 @@ def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokeniz
     if dir_path:
         pretrained_tokenizer = PreTrainedTokenizerFast(
             tokenizer_file = dir_path + 'tokenizer.json',
+            model_max_length = model_max_length,
             bos_token = '<SOS>',
             eos_token = '<EOS>',
             pad_token = '<PAD>',
@@ -50,6 +51,8 @@ def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokeniz
     else:
         pretrained_tokenizer = PreTrainedTokenizerFast(
             tokenizer_obj = tokenizer_obj,
+            model_max_length = model_max_length,
+            add_prefix_space = True,
             bos_token = '<SOS>',
             eos_token = '<EOS>',
             pad_token = '<PAD>',

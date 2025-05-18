@@ -6,12 +6,13 @@ from torch.utils.data import Dataset
 class TextSummarizationDataset(Dataset):
     """
     """
-    def __init__(self, sequences: pd.Series, summaries: pd.Series):
-        self.sequences = sequences
-        self.summaries = summaries
+    def __init__(self, sources: list, targets: list, labels: list):
+        self.sources = sources
+        self.targets = targets
+        self.labels = labels
 
     def __len__(self):
-        return self.sequences.shape[0]
+        return len(self.sources)
 
     def __getitem__(self, idx):
-        return self.sequences[idx], self.summaries[idx]
+        return (self.sources[idx], self.targets[idx]), self.labels[idx]

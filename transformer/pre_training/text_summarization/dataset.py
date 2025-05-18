@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 class TextSummarizationDataset(Dataset):
     """
     """
-    def __init__(self, sequences: torch.Tensor, summaries: torch.Tensor):
+    def __init__(self, sequences: pd.Series, summaries: pd.Series):
         self.sequences = sequences
         self.summaries = summaries
 

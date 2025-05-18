@@ -42,6 +42,7 @@ def load_tokenizer_from(dir_path: str = None, tokenizer_obj: ByteLevelBPETokeniz
         pretrained_tokenizer = PreTrainedTokenizerFast(
             tokenizer_file = dir_path + 'tokenizer.json',
             model_max_length = model_max_length,
+            add_prefix_space = True,
             bos_token = '<SOS>',
             eos_token = '<EOS>',
             pad_token = '<PAD>',

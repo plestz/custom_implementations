@@ -1,6 +1,8 @@
 transformer/embeddings
 transformer/data
 
+transformer/tokenization/byte_pair_encoding/test_add_prefix_space.py
+
 .vscode/
 *.py[cod]
 __pycache__/

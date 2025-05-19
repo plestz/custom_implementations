@@ -21,7 +21,7 @@ class RandomIntegerDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Returns the input and label sequences at the specified index.
+        Returns the source, target, and label sequences at the specified index.
         """
         return (self.inputs[0][idx], self.inputs[1][idx]), self.labels[idx]
 

@@ -15,4 +15,5 @@ class TextSummarizationDataset(Dataset):
         return len(self.sources)
 
     def __getitem__(self, idx):
+        print((self.sources[idx], self.targets[idx]), self.labels[idx])
         return (self.sources[idx], self.targets[idx]), self.labels[idx]

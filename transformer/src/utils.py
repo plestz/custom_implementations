@@ -38,26 +38,6 @@ def pad_batch_to_longest_seq_len(batch: list[torch.Tensor], pad_value = 0) -> tu
 
     return padded_batch.float(), max_seq
 
-
-if __name__ == '__main__':
-
-    sequences = [
-        torch.randn(3, 3),
-        torch.randn(2, 3),
-        torch.randn(4, 3)
-    ]
-
-    print(sequences)
-
-    # Verifies that output is sequences, with pad_value rows appended
-    padded = pad_batch_to_longest_seq_len(sequences, pad_value = 0)
-
-    print(padded)
-
-    # torch.Size([batch_size = 3, seq = 4, d_model = 3])
-    assert padded[0].size() == (3, 4, 3)
-    assert padded[1] == 4
-
 def padding_collate_fn(batch: list[tuple[tuple[Union[torch.Tensor, list], Union[torch.Tensor, list]], Union[torch.Tensor, list]]], pad_token_idx) -> tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
     """
     Given a batch of sequences (each with a source, target, and label) of varying lengths, 
@@ -90,6 +70,7 @@ def padding_collate_fn(batch: list[tuple[tuple[Union[torch.Tensor, list], Union[
     max_target_length = max(len(tensor) for tensor in targets)
     max_label_length = max(len(tensor) for tensor in labels)
 
+    # NOTE: Future improvement: use torch.nn.utils.rnn.pad_sequence for vectorized operation
     # Pre-allocate tensors
     source_tensor = torch.full((num_sequences, max_source_length), pad_token_idx, dtype = torch.long)
     target_tensor = torch.full((num_sequences, max_target_length), pad_token_idx, dtype = torch.long)

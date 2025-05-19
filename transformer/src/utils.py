@@ -81,4 +81,10 @@ def padding_collate_fn(batch: list[tuple[tuple[Union[torch.Tensor, list], Union[
         target_tensor[i, :len(target_seq)] = target_seq
         label_tensor[i, :len(label_seq)] = label_seq
 
+        if len(target_seq) != len(label_seq):
+            print(source_seq)
+            print(target_seq)
+            print(label_seq)
+            raise ValueError('force break') 
+
     return (source_tensor, target_tensor), label_tensor

@@ -26,5 +26,5 @@ class TextSummarizationDataset(Dataset):
         """
         Returns the source, target, and label sequences at the specified index.
         """
-        print((self.sources[idx], self.targets[idx]), self.labels[idx])
+        # print((self.sources[idx], self.targets[idx]), self.labels[idx])
         return (self.sources[idx], self.targets[idx]), self.labels[idx]

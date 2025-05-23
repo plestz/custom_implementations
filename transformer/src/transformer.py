@@ -335,32 +335,29 @@ class EncoderTransformer(Transformer):
         self.final_layer_norm = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
         self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
 
-    def forward(self, source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
-        Performs one full forward pass through the transformer. Takes
-        the padded batch of input sequences and outputs the probability distribution
-        vector for the next-most likely word to appear after the target(s).
-        
-        Note that this is the classical Transformer architecture from the 2017 research 
-        paper 'Attention Is All You Need', so there is an encoder and decoder.
+        Performs one full forward pass through the Encoder-only transformer. Takes
+        the padded batch of input sequences and outputs the logit vector for the 
+        next-most likely token to appear *at the same position* in each input sequence.
 
         Args:
-            source - Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
-            target - Decoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+            input - Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
 
         Returns:
-            next_word_probs - For each seq_i in the layer-normalized decoder_output, 
-            produces the log-odds corresponding to the next most likely word.
+            logits - For each seq_i in the layer-normalized decoder_output, 
+            produces the log-odds corresponding to the most likely word at
+            that position.
         """
         # Encoder Block
-        encoder_output, _ = self.encode(source)
+        encoder_output, _ = self.encode(input)
 
         # Project into Vocabulary (+ Final LayerNorm)
         logits = self.project_into_vocab(encoder_output)
 
         return logits
     
-    def encode(self, source: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, input: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Performs one full forward pass through the *encoder* block of the Transformer.
 
@@ -368,19 +365,19 @@ class EncoderTransformer(Transformer):
         representation Tensor of the source context (bi-directional).
 
         Args:
-            source - Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+            input - Encoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
 
         Returns:
             encoder_output - The output of the entire encoder block after bi-directional embedding contextualization
-            source_pad_mask - The padding mask pertaining to the entire source batch
+            source_pad_mask - The padding mask pertaining to the entire input batch
         """
         # At this point, source = (# sequences, unaltered sequence padded up to max_seq_len)
-        source_pad_mask = (source != self.PAD_TOKEN_IDX).bool()
+        source_pad_mask = (input != self.PAD_TOKEN_IDX).bool()
 
         # The goal is turn the "batch" of (1, sequence)'s into the corresponding (3D) batch of (seq_i_len, d_model)
-        source_embedding: torch.Tensor = self.embeddings(source)
+        source_embedding: torch.Tensor = self.embeddings(input)
 
-        source_batch_size, source_max_sequence_len = source.size()
+        source_batch_size, source_max_sequence_len = input.size()
 
         assert source_max_sequence_len <= self.max_context_window
         assert source_embedding.size() == (source_batch_size, source_max_sequence_len, self.d_model)
@@ -501,7 +498,7 @@ class DecoderTransformer(Transformer):
 
         Returns:
             decoder_output - The output of the entire decoder block after contextualization (see function description).
-            target_pad_mask - The padding mask pertaining to the entire target batch
+            target_pad_mask - The padding mask pertaining to the entire input batch
         """
         # At this point, input = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
         input_pad_mask = (input != self.PAD_TOKEN_IDX).bool()

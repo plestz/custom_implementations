@@ -53,6 +53,8 @@ class Decoder(nn.Module):
 
         Output is compatible to be fed to either another decoder or towards the output probability layer.
 
+        Note: Assumes decoder-only origin to disable cross-attention if any of encoder_K, encoder_V, source_pad_mask are None.
+
         Args:
             x - The decoder input of shape (batch_size, seq, d_model)
             encoder_K - The K tensor output by the final encoder block.
@@ -61,10 +63,13 @@ class Decoder(nn.Module):
             source_pad_mask - Indicator of source padding locations to mask (so as to not contribute to attention)
 
         Returns:
-            x - The full-context decoder embedding (via (causal) multi-head self-attention and cross-attention mechanisms) of
+            x - The full-context decoder embedding (via (causal) multi-head self-attention and [optional] cross-attention mechanisms) of
             shape (batch_size, seq, d_model). Input x.size() = Output x.size()
         """
         original_size = x.size()
+
+        # For decoder-only functionality
+        disable_flag_decoder_only = not (encoder_K is None or encoder_V is None or source_pad_mask is None)
 
         if self.use_pre_lnorm:
             # CAUSAL SELF-ATTENTION
@@ -75,11 +80,12 @@ class Decoder(nn.Module):
             assert x.size() == original_size
 
             # CROSS-ATTENTION
-            x_lnorm = self.layer_norm_2(x)
-            MHA = self.mha(x_lnorm, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
-            assert MHA.size() == original_size
-            x = x + self.dropout_2(MHA)
-            assert x.size() == original_size
+            if disable_flag_decoder_only:
+                x_lnorm = self.layer_norm_2(x)
+                MHA = self.mha(x_lnorm, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
+                assert MHA.size() == original_size
+                x = x + self.dropout_2(MHA)
+                assert x.size() == original_size
 
             # FFN
             x_lnorm = self.layer_norm_3(x)
@@ -97,11 +103,12 @@ class Decoder(nn.Module):
             assert x.size() == original_size
 
             # CROSS-ATTENTION
-            MHA = self.mha(x, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
-            assert MHA.size() == original_size
-            x = x + self.dropout_2(MHA)
-            x = self.layer_norm_2(x)
-            assert x.size() == original_size
+            if disable_flag_decoder_only:
+                MHA = self.mha(x, encoder_K, encoder_V, target_pad_mask, source_pad_mask)
+                assert MHA.size() == original_size
+                x = x + self.dropout_2(MHA)
+                x = self.layer_norm_2(x)
+                assert x.size() == original_size
 
             # FFN
             FF = self.ff(x)

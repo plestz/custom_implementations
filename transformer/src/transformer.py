@@ -412,3 +412,132 @@ class EncoderTransformer(Transformer):
         logits = self.vocab_linear(norm_output)
 
         return logits
+    
+class DecoderTransformer(Transformer):
+    """
+    My custom implementation of a Decoder-only Transformer.
+    """
+    def __init__(self, 
+                 embeddings: CustomEmbedding,
+                 vocab_size: int,
+                 d_model = 512, 
+                 num_attention_heads = 8, 
+                 num_decoder_layers = 6,
+                 dim_feedforward = 2048,
+                 dropout = 0.1,
+                 activation = nn.ReLU(),
+                 layer_norm_epsilon = 1e-5,
+                 max_context_window = 1024,
+                 use_pre_lnorm: bool = False,
+        ):
+        """
+        Decoder-only Transformer intitializer.
+
+        Args:
+            embeddings - A container for all of the word embeddings in the vocabulary (including PAD, SOS, EOS)
+            vocab_size - The size of the vocabulary that this transformer will process
+            d_model - The embedding & hidden dimension of the transformer
+            num_attention_heads - The number of attention heads
+            num_decoder_layers - The number of sequential decoder blocks in the network
+            dim_feedforward - The feed-forward layer's hidden dimension 
+            dropout - The dropout percentage for the network
+            activation - The activation function to use in the hidden linear layer at the end of each encoder/decoder block
+            layer_norm_epsilon - The epsilon (numerical stability) to use for each LayerNorm layer
+            max_context_window - The maximum context window that this transformer will be used to process
+            use_pre_lnorm - A flag to determine whether to use pre-norm (if set to true) or post-norm (otherwise)
+        """
+        super().__init__(
+            embeddings,
+            vocab_size,
+            d_model,
+            num_attention_heads,
+            dim_feedforward,
+            dropout,
+            activation,
+            layer_norm_epsilon,
+            max_context_window,
+            use_pre_lnorm
+        )
+
+        self.num_decoder_layers: int = num_decoder_layers
+
+        self.dropout_decoder_embedding = nn.Dropout(self.dropout)
+
+        self.decoders = nn.ModuleList([Decoder(self.d_model, self.num_attention_heads, self.dim_feedforward, self.dropout, self.activation, self.layer_norm_epsilon, self.use_pre_lnorm) for _ in range(self.num_decoder_layers)])
+        
+        self.final_layer_norm = nn.LayerNorm(self.d_model, eps = self.layer_norm_epsilon)
+        self.vocab_linear = nn.Linear(self.d_model, self.vocab_size)
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """
+        Performs one full forward pass through the Decoder-only transformer. Takes
+        the padded batch of input sequences and outputs the logit vector for the 
+        next-most likely token to appear after each token in each input sequence.
+
+        Args:
+            input - Input sequence batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+
+        Returns:
+            logits - For each seq_i in the layer-normalized decoder_output, 
+            produces the log-odds corresponding to the next most likely word.
+        """
+        # Decoder Block
+        decoder_output, _ = self.decode(input)
+
+        # Project into Vocabulary (+ Final LayerNorm)
+        logits = self.project_into_vocab(decoder_output)
+
+        return logits
+    
+    def decode(self, input: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Performs one full forward pass through the *decoder* block of the Transformer.
+
+        Takes the source input and outputs a [B,S,D] Tensor that encapsulates, for every
+        target token embedding, its left-context within its sequence in the batch.
+
+        Args:
+            target - Decoder input batch. A 2D tensor of shape (batch size = num_sequences, sequence length (padded to max)).
+
+        Returns:
+            decoder_output - The output of the entire decoder block after contextualization (see function description).
+            target_pad_mask - The padding mask pertaining to the entire target batch
+        """
+        # At this point, input = (# sequences, [SOS] + desired sequence padding up to max_seq_len + 1)
+        input_pad_mask = (input != self.PAD_TOKEN_IDX).bool()
+
+        # The goal is turn the "batch" of (1, sequence)'s into the corresponding (3D) batch of (seq_i_len, d_model)
+        input_embedding: torch.Tensor = self.embeddings(input)
+
+        input_batch_size, input_max_sequence_len = input.size()
+
+        assert input_max_sequence_len <= self.max_context_window
+        assert input_embedding.size() == (input_batch_size, input_max_sequence_len, self.d_model)
+
+        # Decoders (Sequential Processing)
+        decoder_input = self.dropout_decoder_embedding(input_embedding + self.positional_encodings[:input_max_sequence_len].unsqueeze(0))
+
+        decoder_output = decoder_input
+        for i in range(self.num_decoder_layers):
+            decoder_output = self.decoders[i](decoder_output, None, None, input_pad_mask, None)
+
+        return decoder_output, input_pad_mask
+    
+    def project_into_vocab(self, decoder_output: torch.Tensor) -> torch.Tensor:
+        """
+        Projects the output of the decoder into the vocabulary space with
+        corresponding non-negative logits for every token.
+
+        Args:
+            decoder_output - The output of the entire decoder block after contextualization.
+
+        Returns:
+            logits - The logits corresponding to the raw, unnormalized probabilities of each token in the vocabulary
+        """
+        # Final layer norm before projection for stabilization
+        norm_output = self.final_layer_norm(decoder_output)
+
+        # Project to Vocabulary Space
+        logits = self.vocab_linear(norm_output)
+
+        return logits

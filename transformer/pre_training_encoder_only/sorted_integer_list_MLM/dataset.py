@@ -6,11 +6,11 @@ class RandomSortedIntegerDataset(Dataset):
     """
     A dataset that generates random sorted integer sequences.
     """
-    def __init__(self, min_seq_len: int, max_seq_len: int, num_sequences: int, vocab: list):
+    def __init__(self, min_seq_len: int, num_sequences: int, vocab: list):
         """
         Initializes the RandomSortedIntegerDataset.
         """
-        self.inputs, self.labels = generate_random_sorted_integer_sequences(min_seq_len, max_seq_len, num_sequences, vocab)
+        self.inputs, self.labels = generate_random_sorted_integer_sequences(min_seq_len, num_sequences, vocab)
 
     def __len__(self):
         """
@@ -26,8 +26,8 @@ class RandomSortedIntegerDataset(Dataset):
 
 def generate_random_sorted_integer_sequences(min_seq_len: int, num_sequences: int, vocab: list) -> tuple[tuple[list[torch.Tensor], list[torch.Tensor]], list[torch.Tensor]]:
     """
-    Generate sorted  integersequences of a size between min_seq_len and vocab_size (both inclusive),
-    where elements are from vocab.
+    Generate sorted integer sequences of a size between min_seq_len and vocab_size 
+    (both inclusive), where elements are from vocab.
 
     This function does not perform any sequence padding.
 
